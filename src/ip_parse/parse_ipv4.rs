@@ -124,12 +124,12 @@ pub fn get_ip_options(buf: &[u8; 65535]) -> ([u8; 60], usize) {
 }
 
 /// Returns an array with the datagrams data section and the data section's size.
-pub fn get_ip_data(buf: &[u8; 65535]) -> ([u8; 65515], usize) {
+pub fn get_ip_data(buf: &[u8; 65535]) -> ([u8; 65535], usize) {
     let header_len = (get_ip_ihl(buf)[0] * 4) as usize;
     let datagram_len = u16::from_be_bytes(get_ip_total_len(buf)) as usize;
     let data_len = datagram_len - header_len;
 
-    let mut result = [0; 65515];
+    let mut result: [u8; 65535] = [0; 65535];
     result[..(data_len)].copy_from_slice(&buf[header_len..(datagram_len)]);
     (result, data_len)
 }
@@ -140,7 +140,7 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     let ip_tos = u8::from_be_bytes(get_ip_tos(&buf));
     let ip_dscp = u8::from_be_bytes(get_ip_dscp(&buf));
     let ip_ecn = u8::from_be_bytes(get_ip_ecn(&buf));
-    let ip_tl = u16::from_be_bytes(get_ip_total_len(&buf));
+    let ip_total_len = u16::from_be_bytes(get_ip_total_len(&buf));
     let ip_id = u16::from_be_bytes(get_ip_identification(&buf));
     let ip_df = u8::from_be_bytes(get_ip_df_flag(&buf));
     let ip_mf = u8::from_be_bytes(get_ip_mf_flag(&buf));
@@ -153,12 +153,14 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     let ip_opts = get_ip_options(&buf);
     let (ip_data, ip_data_len) = get_ip_data(&buf);
 
+    println!("IP DATAGRAM INFO:");
+
     println!("ip_version: {:x?}", ip_version);
     println!("ip_ihl: {:x?}", ip_ihl);
     println!("ip_tos: {:x?}", ip_tos);
     println!("ip_dscp: {:x?}", ip_dscp);
     println!("ip_ecn: {:x?}", ip_ecn);
-    println!("ip_tl: {:x?}", ip_tl);
+    println!("ip_tl: {:?}", ip_total_len);
     println!("ip_id: {:x?}", ip_id);
     println!("ip_df: {:x?}", ip_df);
     println!("ip_mf: {:x?}", ip_mf);
