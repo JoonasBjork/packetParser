@@ -4,8 +4,6 @@ pub fn get_ether_type(buf: &[u8; 1504]) -> [u8; 4] {
     result
 }
 
-/// get_ether_data(buf: &[u8; 1504], data_size: usize) -> [u8; 1500]
-///
 /// Returns an array with the data and the length of the data
 pub fn get_ether_data(buf: &[u8; 1504], data_size: usize) -> ([u8; 1500], usize) {
     assert!(
