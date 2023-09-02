@@ -1,0 +1,2 @@
+Create a virtual network device "tun0"
+- sudo ip tuntap add tun0 mode tun
