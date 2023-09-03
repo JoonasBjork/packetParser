@@ -20,19 +20,19 @@ After creating the interface, the program can be run with the run.sh script. Pac
 
 ## Goals
 ### Currently
-- [] Full implementation of IP parsing
-  - [] Support for fragments
-  - [] Support for IPv6
-- [] Full implementation of TCP parsing
-  - [] Support for options
-- [] Implementation for basic TCP functionality
-  - [] Different TCP states
-- [] Unit tests for functions
+- [ ] Full implementation of IP parsing
+  - [ ] Support for fragments
+  - [ ] Support for IPv6
+- [ ] Full implementation of TCP parsing
+  - [ ] Support for options
+- [ ] Implementation for basic TCP functionality
+  - [ ] Different TCP states
+- [ ] Unit tests for functions
 
 ### In the future
-- [] Move the IP, TCP, Ethernet parsing into their own libraries
-- [] Full implementation of Ethernet parsing
+- [ ] Move the IP, TCP, Ethernet parsing into their own libraries
+- [ ] Full implementation of Ethernet parsing
   - Requires changing from TUN interface to TAP interface
-- [] Possibilities to run the program in a Docker container
-- [] Possibilities to run the Dockerized program within a container orchestration platform such as Kubernetes
-  - [] Automate testing in Kubernetes
+- [ ] Possibilities to run the program in a Docker container
+- [ ] Possibilities to run the Dockerized program within a container orchestration platform such as Kubernetes
+  - [ ] Automate testing in Kubernetes
