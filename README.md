@@ -21,9 +21,11 @@ After creating the interface, the program can be run with the run.sh script. Pac
 ## Goals
 ### Currently
 - [ ] Full implementation of IP parsing
+  - [x] Basic parsing
   - [ ] Support for fragments
   - [ ] Support for IPv6
 - [ ] Full implementation of TCP parsing
+  - [x] Basic parsing
   - [ ] Support for options
 - [ ] Implementation for basic TCP functionality
   - [ ] Different TCP states
