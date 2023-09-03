@@ -33,8 +33,8 @@ pub fn get_ip_ecn(buf: &[u8; 65535]) -> [u8; 1] {
     result
 }
 
-/// Returns an array with the total length field,
-/// which contains information about what the total size of the ip datagram is.
+/// Returns an array with the total length field.
+/// Total length is expressed in the number of bytes.
 pub fn get_ip_total_len(buf: &[u8; 65535]) -> [u8; 2] {
     let mut result = [0; 2];
     result.copy_from_slice(&buf[2..4]);
@@ -123,15 +123,16 @@ pub fn get_ip_options(buf: &[u8; 65535]) -> ([u8; 60], usize) {
     return (result, options_bytes);
 }
 
-/// Returns an array with the datagrams data section and the data section's size.
+/// Returns an array with the datagrams data section and the data section's size in bytes.
 pub fn get_ip_data(buf: &[u8; 65535]) -> ([u8; 65535], usize) {
-    let header_len = (get_ip_ihl(buf)[0] * 4) as usize;
-    let datagram_len = u16::from_be_bytes(get_ip_total_len(buf)) as usize;
-    let data_len = datagram_len - header_len;
+    let header_len_in_bytes = (get_ip_ihl(buf)[0] * 4) as usize;
+    let datagram_len_in_bytes = u16::from_be_bytes(get_ip_total_len(buf)) as usize;
+    let data_len_in_bytes = datagram_len_in_bytes - header_len_in_bytes;
 
     let mut result: [u8; 65535] = [0; 65535];
-    result[..(data_len)].copy_from_slice(&buf[header_len..(datagram_len)]);
-    (result, data_len)
+    result[..(data_len_in_bytes)]
+        .copy_from_slice(&buf[header_len_in_bytes..(datagram_len_in_bytes)]);
+    (result, data_len_in_bytes)
 }
 
 pub fn print_ip_data(buf: &[u8; 65535]) -> () {
@@ -150,7 +151,7 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     let ip_checksum = u16::from_be_bytes(get_ip_checksum(&buf));
     let ip_src_addr = get_ip_src_addr(&buf);
     let ip_dst_addr = get_ip_dst_addr(&buf);
-    let ip_opts = get_ip_options(&buf);
+    let (ip_opts, ip_opts_len) = get_ip_options(&buf);
     let (ip_data, ip_data_len) = get_ip_data(&buf);
 
     println!("IP DATAGRAM INFO:");
@@ -174,8 +175,16 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     println!("ip_checksum: {:x?}", ip_checksum);
     println!("ip_src_addr: {:?}", ip_src_addr);
     println!("ip_dst_addr: {:?}", ip_dst_addr);
-    println!("ip_opts: {:x?}", ip_opts);
-    println!("ip_data: {:x?}", ip_data[..ip_data_len].to_vec());
+    println!(
+        "ip_opts: {:x?}, opts_len: {}",
+        ip_opts[..ip_opts_len].to_vec(),
+        ip_opts_len
+    );
+    println!(
+        "ip_data: {:x?}, data_len: {}",
+        ip_data[..ip_data_len].to_vec(),
+        ip_data_len
+    );
 }
 
 /// Returns True if the checksum field matches the header's checksum
