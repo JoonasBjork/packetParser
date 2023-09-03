@@ -42,31 +42,31 @@ pub fn get_tcp_reserved(buf: &[u8; 65535]) -> [u8; 1] {
 
 /// Returns an array with the URG flag
 pub fn get_tcp_urg_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result = [buf[13] & 0b00100000 >> 5];
+    let result = [(buf[13] & 0b00100000) >> 5];
     result
 }
 
 /// Returns an array with the ACK flag
 pub fn get_tcp_ack_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result = [buf[13] & 0b00010000 >> 4];
+    let result = [(buf[13] & 0b00010000) >> 4];
     result
 }
 
 /// Returns an array with the PSH flag
 pub fn get_tcp_psh_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result = [buf[13] & 0b00001000 >> 3];
+    let result = [(buf[13] & 0b00001000) >> 3];
     result
 }
 
 /// Returns an array with the RST flag
 pub fn get_tcp_rst_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result = [buf[13] & 0b00000100 >> 2];
+    let result = [(buf[13] & 0b00000100) >> 2];
     result
 }
 
 /// Returns an array with the SYN flag
 pub fn get_tcp_syn_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result = [buf[13] & 0b00000010 >> 1];
+    let result = [(buf[13] & 0b00000010) >> 1];
     result
 }
 
@@ -132,7 +132,8 @@ pub fn check_tcp_checksum(buf: &[u8; 65535]) -> bool {
         cumulative_sum += u16::from_be_bytes(current_field) as u32;
     }
 
-    let checksum: u16 = ((cumulative_sum & 0x11110000) >> 4 + (cumulative_sum & 0x00001111)) as u16;
+    let checksum: u16 =
+        (((cumulative_sum & 0x11110000) >> 4) + (cumulative_sum & 0x00001111)) as u16;
     checksum == 0
 }
 

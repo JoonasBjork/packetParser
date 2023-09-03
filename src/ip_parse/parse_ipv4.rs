@@ -48,10 +48,16 @@ pub fn get_ip_identification(buf: &[u8; 65535]) -> [u8; 2] {
     result
 }
 
+/// Returns an array with the reserved flag. Should always be 0.
+pub fn get_ip_reserved_flag(buf: &[u8; 65535]) -> [u8; 1] {
+    let result: [u8; 1] = [(buf[6] & 0b10000000) >> 7];
+    result
+}
+
 /// Returns an array with the DF flag (Don't Fragment) as either 1 or 0.
 /// If set, and fragmentation is required to route the datagram, the datagram is dropped.
 pub fn get_ip_df_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result: [u8; 1] = [buf[6] & 0b01000000 >> 6];
+    let result: [u8; 1] = [(buf[6] & 0b01000000) >> 6];
     result
 }
 
@@ -60,7 +66,7 @@ pub fn get_ip_df_flag(buf: &[u8; 65535]) -> [u8; 1] {
 /// except the last one have the MF flag as 1. The last fragment has a non-zero Fragment Offset field,
 /// differentiating it from an unfragmented datagram.
 pub fn get_ip_mf_flag(buf: &[u8; 65535]) -> [u8; 1] {
-    let result: [u8; 1] = [buf[6] & 0b00100000 >> 5];
+    let result: [u8; 1] = [(buf[6] & 0b00100000) >> 5];
     result
 }
 
@@ -143,8 +149,9 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     let ip_ecn = u8::from_be_bytes(get_ip_ecn(&buf));
     let ip_total_len = u16::from_be_bytes(get_ip_total_len(&buf));
     let ip_id = u16::from_be_bytes(get_ip_identification(&buf));
-    let ip_df = u8::from_be_bytes(get_ip_df_flag(&buf));
-    let ip_mf = u8::from_be_bytes(get_ip_mf_flag(&buf));
+    let ip_res_flag = u8::from_be_bytes(get_ip_reserved_flag(&buf));
+    let ip_df_flag = u8::from_be_bytes(get_ip_df_flag(&buf));
+    let ip_mf_flag = u8::from_be_bytes(get_ip_mf_flag(&buf));
     let ip_fragment_offset = u16::from_be_bytes(get_ip_fragment_offset(&buf));
     let ip_ttl = u8::from_be_bytes(get_ip_ttl(&buf));
     let ip_proto = u8::from_be_bytes(get_ip_protocol(&buf));
@@ -161,16 +168,17 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     println!("ip_tos: {:x?}", ip_tos);
     println!("ip_dscp: {:x?}", ip_dscp);
     println!("ip_ecn: {:x?}", ip_ecn);
-    println!("ip_tl: {:?}", ip_total_len);
-    println!("ip_id: {:x?}", ip_id);
-    println!("ip_df: {:x?}", ip_df);
-    println!("ip_mf: {:x?}", ip_mf);
+    println!("ip_total_len: {:?}", ip_total_len);
+    println!("ip_identification: {:?}", ip_id);
+    println!("ip_reserved_flag: {:x?}", ip_res_flag);
+    println!("ip_dont_fragment_flag: {:x?}", ip_df_flag);
+    println!("ip_more_fragments_flag: {:x?}", ip_mf_flag);
     println!("ip_fragment_offset: {:x?}", ip_fragment_offset);
     println!("ip_ttl: {:x?}", ip_ttl);
     println!(
-        "ip_proto: {:x?}, {:?}",
+        "ip_proto: {:x?}, proto_name: {:?}",
         ip_proto,
-        parse_tables::get_proto_name(ip_proto)
+        parse_tables::get_proto_name(ip_proto).get_or_insert("UNKNOWN")
     );
     println!("ip_checksum: {:x?}", ip_checksum);
     println!("ip_src_addr: {:?}", ip_src_addr);
