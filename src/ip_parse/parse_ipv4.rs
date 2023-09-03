@@ -1,6 +1,6 @@
 use crate::ip_parse::parse_tables;
 
-/// Returns an array with ip version in the packet
+/// Returns an array with ip version in the datagram
 pub fn get_ip_version(buf: &[u8; 65535]) -> [u8; 1] {
     let result: [u8; 1] = [(buf[0] & 0b11110000) >> 4];
     result
@@ -27,7 +27,7 @@ pub fn get_ip_dscp(buf: &[u8; 65535]) -> [u8; 1] {
 
 /// Return an array with the ECN field,
 /// which contains end-to-end notification of network congestion
-/// without dropping packets
+/// without dropping datagrams
 pub fn get_ip_ecn(buf: &[u8; 65535]) -> [u8; 1] {
     let result = [buf[1] & 0b00000011];
     result
@@ -49,16 +49,16 @@ pub fn get_ip_identification(buf: &[u8; 65535]) -> [u8; 2] {
 }
 
 /// Returns an array with the DF flag (Don't Fragment) as either 1 or 0.
-/// If set, and fragmentation is required to route the packet, the packet is dropped.
+/// If set, and fragmentation is required to route the datagram, the datagram is dropped.
 pub fn get_ip_df_flag(buf: &[u8; 65535]) -> [u8; 1] {
     let result: [u8; 1] = [buf[6] & 0b01000000 >> 6];
     result
 }
 
 /// Returns an array with the MF flag (More Fragments) as either 1 or 0.
-/// For unfragmented packets, the MF flag is 0. For fragmented packets, all fragments
+/// For unfragmented datagrams, the MF flag is 0. For fragmented datagrams, all fragments
 /// except the last one have the MF flag as 1. The last fragment has a non-zero Fragment Offset field,
-/// differentiating it from an unfragmented packet.
+/// differentiating it from an unfragmented datagram.
 pub fn get_ip_mf_flag(buf: &[u8; 65535]) -> [u8; 1] {
     let result: [u8; 1] = [buf[6] & 0b00100000 >> 5];
     result
