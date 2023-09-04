@@ -24,10 +24,12 @@ After creating the interface, the program can be run with the run.sh script. Pac
   - [x] Basic parsing
   - [ ] Support for fragments
   - [ ] Support for IPv6
+  - [ ] Support for creating IP datagrams
 - [ ] Full implementation of TCP parsing
   - [x] Basic parsing
   - [ ] Support for options
 - [ ] Implementation for basic TCP functionality
+  - [ ] First response to the original sender of the request
   - [ ] Different TCP states
 - [ ] Unit tests for functions
 

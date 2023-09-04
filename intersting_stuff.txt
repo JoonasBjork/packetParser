@@ -1,1 +1,0 @@
-The basic HTTP GET request doesn't contain any data in the TCP payload. All the data is in the header. 

@@ -1,6 +1,7 @@
 use std::io;
 mod ether_parse;
 mod ip_parse;
+mod tcp;
 mod tcp_parse;
 
 use ether_parse::parse_ether::*;

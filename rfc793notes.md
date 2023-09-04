@@ -40,4 +40,11 @@ https://www.ietf.org/rfc/rfc793.txt
     - Also partially restricted matches exist
 - A connection is made with the three-way handhake, 
 
-### Functional Specification
+## Functional Specification
+
+### Terminology
+- A single connection requires remembering many variables -> stored in TCB (Transmission control block)
+  - Local and remote sock nums, security and precedence of the connection, ptrs to the user's send an receive buffers, ptrs to retransmit queue and to the current segment, variables related to send and receive sequence numbers. 
+- A connection's states are LISTEN, SYN-SENT, SYN-RECEIVED, ESTABLISHED, FIN-WAIT-1, FIN-WAIT-2, CLOSE-WAIT, LAST-ACK, TIME-WAIT and (fictional) CLOSED. 
+- The TCP connection progresses from one state to another in response to events
+  - The events are the user calls, OPEN, SEND, RECEIVE, CLOSE, ABORT, and STATUS; the incoming segments, particularly those containing the SYN, ACK, RST and FIN flags; and timeouts.
