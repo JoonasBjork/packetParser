@@ -48,3 +48,6 @@ https://www.ietf.org/rfc/rfc793.txt
 - A connection's states are LISTEN, SYN-SENT, SYN-RECEIVED, ESTABLISHED, FIN-WAIT-1, FIN-WAIT-2, CLOSE-WAIT, LAST-ACK, TIME-WAIT and (fictional) CLOSED. 
 - The TCP connection progresses from one state to another in response to events
   - The events are the user calls, OPEN, SEND, RECEIVE, CLOSE, ABORT, and STATUS; the incoming segments, particularly those containing the SYN, ACK, RST and FIN flags; and timeouts.
+
+- All bytes have a sequence number, each byte can be acknowledged. 
+  - Acknowledgement of sequence number X indicates that all octets up to (but not including) X have been received

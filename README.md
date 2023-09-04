@@ -20,20 +20,26 @@ After creating the interface, the program can be run with the run.sh script. Pac
 
 ## Goals
 ### Currently
-- [ ] Full implementation of IP parsing
-  - [x] Basic parsing
-  - [ ] Support for fragments
-  - [ ] Support for IPv6
+- [ ] Full implementation of IP data structures
+  - [ ] Parsing
+    - [ ] Support for combining fragments into single datagrams
+    - [ ] support for options
+    - [ ] Unit tests
   - [ ] Support for creating IP datagrams
-- [ ] Full implementation of TCP parsing
-  - [x] Basic parsing
-  - [ ] Support for options
-- [ ] Implementation for basic TCP functionality
-  - [ ] First response to the original sender of the request
-  - [ ] Different TCP states
-- [ ] Unit tests for functions
+    - [ ] Support for creating fragmented datagrams
+    - [ ] Unit tests
+  - [ ] Support for IPv6
+- [ ] Full implementation of TCP data structures
+  - [ ] Parsing
+    - [ ] Support for options
+    - [ ] Unit tests
+  - [ ] Creation
+    - [ ] Unit tests
+- [ ] Full implementation of TCP
+  - [ ] Full support for different states and moving between states
 
-### In the future
+
+### Maybe in the future
 - [ ] Move the IP, TCP, Ethernet parsing into their own libraries
 - [ ] Full implementation of Ethernet parsing
   - Requires changing from TUN interface to TAP interface

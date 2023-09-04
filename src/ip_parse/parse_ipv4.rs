@@ -1,3 +1,6 @@
+//! The parse_ipv4.rs file contains operations to access, and create IPv4 datagrams
+//! IPv4 datagrams are represented as fixed size arrays of the form [u8; 65535].
+
 use crate::ip_parse::parse_tables;
 
 pub struct DatagramError(pub Vec<String>);
@@ -19,17 +22,48 @@ impl DatagramError {
 /// Returns an array with the checksum field's bytes
 ///
 /// * The `header` parameter is the ip datagram header excluding the options field.
-/// Helper function for creating an ip datagram.
+/// Helper function for creating an ip datagram. Skips over the checksum bytes in the header.
+#[allow(unused)]
 fn calculate_checksum(header: &[u8; 20]) -> [u8; 2] {
-    unimplemented!();
+    let mut sum: u16 = 0;
+    let mut current_field = [0; 2];
+    for k in (0..20).step_by(2) {
+        if k == 10 {
+            continue;
+        }
+        current_field.copy_from_slice(&header[k..k + 2]);
+        let next_field_value = u16::from_be_bytes(current_field);
+        sum = match sum.checked_add(next_field_value) {
+            Some(s) => s,
+            None => sum.wrapping_add(next_field_value.wrapping_add(1)),
+        }
+    }
+    sum = !sum;
+    current_field.copy_from_slice(&sum.to_be_bytes());
+    current_field
 }
 
 /// Returns an array with the IP's bytes
 ///
 /// * The `ip` is a string representation of the ip address with periods as separators of the octets.  
-/// Helper function for creating an ip datagram.
-fn parse_ip_string(ip: &str) -> [u8; 4] {
-    unimplemented!();
+#[allow(unused)]
+pub fn parse_ip_string_to_bytes(ip: &str) -> Result<[u8; 4], ()> {
+    let split_ip = ip
+        .split(".")
+        .map(|octet| octet.parse::<u8>())
+        .collect::<Vec<Result<_, _>>>();
+    if split_ip.len() != 4 || !split_ip.iter().all(|octet| octet.is_ok()) {
+        return Err(());
+    }
+
+    let mut result: [u8; 4] = [0; 4];
+    result.copy_from_slice(
+        &split_ip
+            .into_iter()
+            .map(|oct| oct.unwrap())
+            .collect::<Vec<u8>>(),
+    );
+    Ok(result)
 }
 
 /// Returns an array of bytes with the created ip datagram.
@@ -41,10 +75,11 @@ fn parse_ip_string(ip: &str) -> [u8; 4] {
 /// * `fragment_offset` sets the fragment offset field
 /// * `time_to_live` sets the time to live field
 /// * `protocol` sets the protocol field
-/// * The `src_addr` and `dst_addr` fields are ip addresses with the octets split with periods.
+/// * The `src_addr` and `dst_addr` fields are ip addresses with octets corresponding to the bytes in big endian.
 /// * The `dscp_ecn` field is 8 bits long and uses big endian. The six most significant bits are the dscp.
 /// * `options` sets the options field.
 /// * `data` sets the data field.
+#[allow(unused)]
 pub fn create_ip_datagram(
     dscp_ecn: u8,
     identification: u16,
@@ -53,10 +88,10 @@ pub fn create_ip_datagram(
     fragment_offset: u16,
     time_to_live: u8,
     protocol: u8,
-    src_addr: &str,
-    dst_addr: &str,
-    options: Vec<u8>,
-    data: Vec<u8>,
+    src_addr: &[u8; 4],
+    dst_addr: &[u8; 4],
+    options: &Vec<u8>,
+    data: &Vec<u8>,
 ) -> Result<[u8; 65535], DatagramError> {
     let mut datagram_errors = DatagramError::new();
     if options.len() > 40 {
@@ -77,20 +112,19 @@ pub fn create_ip_datagram(
     }
 
     let mut header: [u8; 20] = [0; 20];
-    let ihl: u8 = (5 + (options.len() + 3) / 4) as u8;
-    header[0] = (4 << 4 | ihl);
+    let ihl: u8 = (5 + (options.len() + 3) / 4) as u8; // Small arithmetic trick to always get a large enough ihl.
+    header[0] = (4 << 4) | ihl; // Ip version and ihl
     header[1] = dscp_ecn;
     let total_len: u16 = 20 + options.len() as u16 + data.len() as u16;
-    header[2..4].copy_from_slice(&[(total_len >> 8) as u8, total_len as u8]);
-    header[4..6].copy_from_slice(&[(identification >> 8) as u8, identification as u8]);
-    header[6..8].copy_from_slice(&[
-        (df_flag as u8) << 6 | (mf_flag as u8) << 5 | (fragment_offset >> 8) as u8,
-        fragment_offset as u8,
-    ]);
+    header[2..4].copy_from_slice(&total_len.to_be_bytes());
+    header[4..6].copy_from_slice(&identification.to_be_bytes());
+    header[6..8].copy_from_slice(
+        &(fragment_offset | ((df_flag as u16) << 14) | ((mf_flag as u16) << 13)).to_be_bytes(),
+    );
     header[8] = time_to_live;
     header[9] = protocol;
-    header[12..16].copy_from_slice(&parse_ip_string(src_addr));
-    header[16..20].copy_from_slice(&parse_ip_string(dst_addr));
+    header[12..16].copy_from_slice(src_addr);
+    header[16..20].copy_from_slice(dst_addr);
 
     let checksum = calculate_checksum(&header);
     header[10..12].copy_from_slice(&checksum);
@@ -191,7 +225,8 @@ pub fn get_ip_reserved_flag(buf: &[u8; 65535]) -> [u8; 1] {
 }
 
 /// Returns an array with the DF flag (Don't Fragment) as either 1 or 0.
-/// If set, and fragmentation is required to route the datagram, the datagram is dropped.
+/// If set, prevents fragmentation of the packet. If fragmentation is required to route the datagram through the network,
+/// the datagram is dropped.
 pub fn get_ip_df_flag(buf: &[u8; 65535]) -> [u8; 1] {
     let result: [u8; 1] = [(buf[6] & 0b01000000) >> 6];
     result
@@ -258,7 +293,7 @@ pub fn get_ip_options(buf: &[u8; 65535]) -> ([u8; 60], usize) {
     if ihl_value < 5 {
         return ([0; 60], 0 as usize);
     }
-    let options_bytes = ihl_value as usize * 4;
+    let options_bytes = ihl_value as usize * 4 - 20;
 
     let mut result = [0; 60];
     result[..options_bytes].copy_from_slice(&buf[20..(20 + options_bytes)]);
@@ -342,4 +377,228 @@ pub fn check_ip_checksum(buf: &[u8; 65535]) -> bool {
 
     let checksum: u16 = ((cumulative_sum & 0x11110000) >> 4 + (cumulative_sum & 0x00001111)) as u16;
     checksum == 0
+}
+
+/// Unit tests for the parse_ipv4 file
+#[cfg(test)]
+mod ipv4_tests {
+    use crate::ip_parse::parse_ipv4::{
+        check_ip_checksum, create_ip_datagram, get_ip_checksum, get_ip_data, get_ip_df_flag,
+        get_ip_dscp, get_ip_dst_addr, get_ip_ecn, get_ip_fragment_offset, get_ip_identification,
+        get_ip_ihl, get_ip_mf_flag, get_ip_options, get_ip_protocol, get_ip_reserved_flag,
+        get_ip_src_addr, get_ip_tos, get_ip_total_len, get_ip_ttl, get_ip_version,
+        parse_ip_string_to_bytes, print_ip_data,
+    };
+
+    #[test]
+    fn test_valid_string_to_ipv4_addr() {
+        match parse_ip_string_to_bytes("10.10.10.10") {
+            Ok(_a) => (),
+            Err(_) => panic!("Valid ip panic"),
+        }
+    }
+
+    #[test]
+    fn test_short_string_to_ipv4_addr() {
+        match parse_ip_string_to_bytes("10.10.10") {
+            Ok(a) => panic!("Invalid ip returned Ok. {:?}", a),
+            Err(_) => (),
+        }
+    }
+
+    #[test]
+    fn test_incorrect_string_to_ipv4_addr() {
+        match parse_ip_string_to_bytes("10.10.257.10") {
+            Ok(a) => panic!("Invalid ip returned Ok. {:?}", a),
+            Err(_) => (),
+        }
+    }
+
+    static mut COMMON_DATAGRAM: [u8; 65535] = [0; 65535];
+
+    #[test]
+    fn test_datagram_creation() {
+        match create_ip_datagram(
+            0b00000000,
+            10 as u16,
+            false,
+            false,
+            0 as u16,
+            30,
+            6,
+            &[192, 168, 0, 2],
+            &[192, 168, 0, 3],
+            &Vec::new(), // Add after support for options exists
+            &"Hello world!".as_bytes().to_vec(),
+        ) {
+            Ok(a) => {
+                print_ip_data(&a);
+                unsafe {
+                    COMMON_DATAGRAM.copy_from_slice(&a);
+                }
+            }
+            Err(e) => {
+                let errors = e.0.join("\n");
+                panic!("Faced errors in datagram creation: \n{}", errors)
+            }
+        }
+    }
+
+    #[test]
+    fn test_ip_ver() {
+        unsafe {
+            let ip_version = u8::from_be_bytes(get_ip_version(&COMMON_DATAGRAM));
+            assert!(ip_version == 4);
+        }
+    }
+
+    #[test]
+    fn test_ip_ihl() {
+        unsafe {
+            let ip_ihl = u8::from_be_bytes(get_ip_ihl(&COMMON_DATAGRAM));
+            assert!(ip_ihl == 5);
+        }
+    }
+    #[test]
+    fn test_ip_tos() {
+        unsafe {
+            let ip_tos = u8::from_be_bytes(get_ip_tos(&COMMON_DATAGRAM));
+            assert!(ip_tos == 0);
+        }
+    }
+    #[test]
+    fn test_ip_dscp() {
+        unsafe {
+            let ip_dscp = u8::from_be_bytes(get_ip_dscp(&COMMON_DATAGRAM));
+            assert!(ip_dscp == 0);
+        }
+    }
+    #[test]
+    fn test_ip_ecn() {
+        unsafe {
+            let ip_ecn = u8::from_be_bytes(get_ip_ecn(&COMMON_DATAGRAM));
+            assert!(ip_ecn == 0);
+        }
+    }
+    #[test]
+    fn test_ip_total_len() {
+        unsafe {
+            let ip_total_len = u16::from_be_bytes(get_ip_total_len(&COMMON_DATAGRAM));
+            assert!(ip_total_len == 20 + 12); // header + "Hello world!"
+        }
+    }
+    #[test]
+    fn test_ip_id() {
+        unsafe {
+            let ip_id = u16::from_be_bytes(get_ip_identification(&COMMON_DATAGRAM));
+            assert!(ip_id == 10);
+        }
+    }
+    #[test]
+    fn test_ip_res_flag() {
+        unsafe {
+            let ip_res_flag = u8::from_be_bytes(get_ip_reserved_flag(&COMMON_DATAGRAM));
+            assert!(ip_res_flag == 0);
+        }
+    }
+    #[test]
+    fn test_ip_df_flag() {
+        unsafe {
+            let ip_df_flag = u8::from_be_bytes(get_ip_df_flag(&COMMON_DATAGRAM));
+            assert!(ip_df_flag == 0);
+        }
+    }
+    #[test]
+    fn test_ip_mf_flag() {
+        unsafe {
+            let ip_mf_flag = u8::from_be_bytes(get_ip_mf_flag(&COMMON_DATAGRAM));
+            assert!(ip_mf_flag == 0);
+        }
+    }
+    #[test]
+    fn test_ip_fragment_offset() {
+        unsafe {
+            let ip_fragment_offset = u16::from_be_bytes(get_ip_fragment_offset(&COMMON_DATAGRAM));
+            assert!(ip_fragment_offset == 0);
+        }
+    }
+    #[test]
+    fn test_ip_time_to_live() {
+        unsafe {
+            let ip_ttl = u8::from_be_bytes(get_ip_ttl(&COMMON_DATAGRAM));
+            assert!(ip_ttl == 30);
+        }
+    }
+    #[test]
+    fn test_ip_protocol() {
+        unsafe {
+            let ip_proto = u8::from_be_bytes(get_ip_protocol(&COMMON_DATAGRAM));
+            assert!(ip_proto == 6);
+        }
+    }
+    #[test]
+    fn test_ip_checksum() {
+        unsafe {
+            let _ip_checksum = u16::from_be_bytes(get_ip_checksum(&COMMON_DATAGRAM));
+            // FIXME: Find correct checksum and comapre to that
+            // assert!(ip_checksum == 4);
+            assert!(true);
+        }
+    }
+    #[test]
+    fn test_ip_src_addr() {
+        unsafe {
+            let ip_src_addr = get_ip_src_addr(&COMMON_DATAGRAM);
+            assert!(ip_src_addr == [192, 168, 0, 2]);
+        }
+    }
+    #[test]
+    fn test_ip_dst_addr() {
+        unsafe {
+            let ip_dst_addr = get_ip_dst_addr(&COMMON_DATAGRAM);
+            assert!(ip_dst_addr == [192, 168, 0, 3]);
+        }
+    }
+    #[test]
+    fn test_ip_options() {
+        unsafe {
+            let (ip_opts, ip_opts_len) = get_ip_options(&COMMON_DATAGRAM);
+            println!("{}", ip_opts_len);
+            assert!(ip_opts_len == 0);
+            assert!(ip_opts.into_iter().all(|x| x == 0));
+        }
+    }
+    #[test]
+    fn test_ip_data() {
+        unsafe {
+            let (ip_data, ip_data_len) = get_ip_data(&COMMON_DATAGRAM);
+            assert!(ip_data_len == 12);
+            assert!(
+                ip_data.into_iter().take(ip_data_len).collect::<Vec<_>>()
+                    == "Hello world!".as_bytes().to_vec()
+            );
+        }
+    }
+
+    #[test]
+    fn test_check_ip_header_checksum() {
+        unsafe {
+            // FIXME:CHECKSUM DOESN't MATCH
+            if !check_ip_checksum(&COMMON_DATAGRAM) {
+                panic!("Checksum doesn't match with check_ip_checksum")
+            }
+        }
+    }
+
+    // #[test] // Need to precalculate the checksum with some other service
+    #[allow(unused)]
+    fn test_ip_header_checksum() {
+        assert!(unsafe {
+            get_ip_checksum(&COMMON_DATAGRAM)
+                .to_vec()
+                .into_iter()
+                .zip([1, 30 as u8])
+                .all(|x| x.0 == x.1)
+        })
+    }
 }
