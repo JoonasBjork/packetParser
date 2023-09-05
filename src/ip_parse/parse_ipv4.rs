@@ -286,19 +286,21 @@ pub fn get_ip_dst_addr(buf: &[u8; 65535]) -> [u8; 4] {
     result
 }
 
-/// Returns an array with the options field in the header
+/// Returns an array in a Result with the options field in the header
 /// and the number of bytes that are a part of the options field
-pub fn get_ip_options(buf: &[u8; 65535]) -> ([u8; 60], usize) {
-    let ihl_value = get_ip_ihl(buf)[0];
+/// If the ihl field of the provided header is less than 5, returns an error as the datagram is malformed.
+pub fn get_ip_options(buf: &[u8; 65535]) -> (Result<[u8; 60], ()>, usize) {
+    let ihl_value = u8::from_be_bytes(get_ip_ihl(buf));
 
     if ihl_value < 5 {
-        return ([0; 60], 0 as usize);
+        return (Err(()), 0);
+        // return ([0; 60], 0 as usize);
     }
     let options_bytes = ihl_value as usize * 4 - 20;
 
     let mut result = [0; 60];
     result[..options_bytes].copy_from_slice(&buf[20..(20 + options_bytes)]);
-    return (result, options_bytes);
+    return (Ok(result), options_bytes);
 }
 
 /// Returns an array with the datagrams data section and the data section's size in bytes.
@@ -356,11 +358,14 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     println!("ip_checksum: {:x?}", ip_checksum);
     println!("ip_src_addr: {:?}", ip_src_addr);
     println!("ip_dst_addr: {:?}", ip_dst_addr);
-    println!(
-        "ip_opts: {:x?}, opts_len: {}",
-        ip_opts[..ip_opts_len].to_vec(),
-        ip_opts_len
-    );
+    match ip_opts {
+        Ok(opts) => println!(
+            "ip_opts: {:x?}, opts_len: {}",
+            opts[..ip_opts_len].to_vec(),
+            ip_opts_len
+        ),
+        Err(()) => println!("ip_opts couldn't be found as the ihl field < 5"),
+    }
     println!(
         "ip_data: {:x?}, data_len: {}",
         ip_data[..ip_data_len].to_vec(),
@@ -382,7 +387,6 @@ pub fn check_ip_checksum(buf: &[u8; 65535]) -> bool {
         }
     }
 
-    // let checksum = !((sum >> 16) + (sum)) as u16;
     let checksum = !sum;
     checksum == 0
 }
@@ -395,7 +399,7 @@ mod ipv4_tests {
         get_ip_dscp, get_ip_dst_addr, get_ip_ecn, get_ip_fragment_offset, get_ip_identification,
         get_ip_ihl, get_ip_mf_flag, get_ip_options, get_ip_protocol, get_ip_reserved_flag,
         get_ip_src_addr, get_ip_tos, get_ip_total_len, get_ip_ttl, get_ip_version,
-        parse_ip_string_to_bytes, print_ip_data,
+        parse_ip_string_to_bytes,
     };
 
     #[test]
@@ -499,7 +503,11 @@ mod ipv4_tests {
 
         let (ip_opts, ip_opts_len) = get_ip_options(&ip_datagram);
         assert!(ip_opts_len == 0);
-        assert!(ip_opts.into_iter().all(|x| x == 0));
+        assert!(
+            ip_opts.is_ok(),
+            "ip_opts couldn't be found and the packet is malformed as the ihl field is less than 5"
+        );
+        assert!(ip_opts.unwrap().into_iter().all(|x| x == 0));
 
         let (ip_data, ip_data_len) = get_ip_data(&ip_datagram);
         assert!(ip_data_len == 12);
