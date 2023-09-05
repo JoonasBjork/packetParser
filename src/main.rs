@@ -5,7 +5,7 @@ mod tcp;
 mod tcp_parse;
 
 use ether_parse::parse_ether::*;
-use ip_parse::parse_ipv4::*;
+use ip_parse::{ip_implementation::*, parse_ipv4::*};
 use tcp_parse::parse_tcp::*;
 
 fn main() -> io::Result<()> {
