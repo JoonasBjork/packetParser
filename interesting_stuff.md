@@ -4,3 +4,4 @@
 - Networks are actually rarely configured to use the maximum possible segment size, such as 65535 bytes for an ip datagram. Instead, smaller values have many advantages, such as packet loss on unreliable networks being a bigger factor with larger packets/datagrams. 
 - Rust unit tests are integrated into the files
 - Rust's usize varies in size depending on the target architecture. Seems risky, although some functions require it. 
+- Rust's tests are not guaranteed to run in any particular order. They usually follow alphabetical order though. One reason for this is that the tests are automatically run in parallel. Therefore the tester can't expect to set up a global data structure in one test and know it exists in another test. 

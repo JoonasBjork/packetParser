@@ -36,9 +36,10 @@ fn calculate_checksum(header: &[u8; 20]) -> [u8; 2] {
         sum = match sum.checked_add(next_field_value) {
             Some(s) => s,
             None => sum.wrapping_add(next_field_value.wrapping_add(1)),
-        }
+        };
     }
     sum = !sum;
+
     current_field.copy_from_slice(&sum.to_be_bytes());
     current_field
 }
@@ -307,8 +308,7 @@ pub fn get_ip_data(buf: &[u8; 65535]) -> ([u8; 65535], usize) {
     let data_len_in_bytes = datagram_len_in_bytes - header_len_in_bytes;
 
     let mut result: [u8; 65535] = [0; 65535];
-    result[..(data_len_in_bytes)]
-        .copy_from_slice(&buf[header_len_in_bytes..(datagram_len_in_bytes)]);
+    result[..data_len_in_bytes].copy_from_slice(&buf[header_len_in_bytes..datagram_len_in_bytes]);
     (result, data_len_in_bytes)
 }
 
@@ -333,6 +333,8 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     let (ip_data, ip_data_len) = get_ip_data(&buf);
 
     println!("IP DATAGRAM INFO:");
+
+    println!("Header as bytes: {:x?}", buf[..20].to_vec());
 
     println!("ip_version: {:x?}", ip_version);
     println!("ip_ihl: {:x?}", ip_ihl);
@@ -368,14 +370,20 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
 
 /// Returns True if the checksum field matches the header's checksum
 pub fn check_ip_checksum(buf: &[u8; 65535]) -> bool {
-    let mut cumulative_sum: u32 = 0;
+    let mut sum: u16 = 0;
     let mut current_field = [0; 2];
     for k in (0..20).step_by(2) {
-        current_field.copy_from_slice(&buf[k..(k + 2)]);
-        cumulative_sum += u16::from_be_bytes(current_field) as u32;
+        current_field.copy_from_slice(&buf[k..k + 2]);
+
+        let next_field_value = u16::from_be_bytes(current_field);
+        sum = match sum.checked_add(next_field_value) {
+            Some(s) => s,
+            None => sum.wrapping_add(next_field_value.wrapping_add(1)),
+        }
     }
 
-    let checksum: u16 = ((cumulative_sum & 0x11110000) >> 4 + (cumulative_sum & 0x00001111)) as u16;
+    // let checksum = !((sum >> 16) + (sum)) as u16;
+    let checksum = !sum;
     checksum == 0
 }
 
@@ -414,11 +422,9 @@ mod ipv4_tests {
         }
     }
 
-    static mut COMMON_DATAGRAM: [u8; 65535] = [0; 65535];
-
     #[test]
-    fn test_datagram_creation() {
-        match create_ip_datagram(
+    fn test_ip_datagram_and_parsing() {
+        let ip_datagram = match create_ip_datagram(
             0b00000000,
             10 as u16,
             false,
@@ -431,174 +437,74 @@ mod ipv4_tests {
             &Vec::new(), // Add after support for options exists
             &"Hello world!".as_bytes().to_vec(),
         ) {
-            Ok(a) => {
-                print_ip_data(&a);
-                unsafe {
-                    COMMON_DATAGRAM.copy_from_slice(&a);
-                }
-            }
+            Ok(a) => a,
             Err(e) => {
                 let errors = e.0.join("\n");
                 panic!("Faced errors in datagram creation: \n{}", errors)
             }
-        }
-    }
+        };
 
-    #[test]
-    fn test_ip_ver() {
-        unsafe {
-            let ip_version = u8::from_be_bytes(get_ip_version(&COMMON_DATAGRAM));
-            assert!(ip_version == 4);
-        }
-    }
+        let ip_version = u8::from_be_bytes(get_ip_version(&ip_datagram));
+        assert!(ip_version == 4);
 
-    #[test]
-    fn test_ip_ihl() {
-        unsafe {
-            let ip_ihl = u8::from_be_bytes(get_ip_ihl(&COMMON_DATAGRAM));
-            assert!(ip_ihl == 5);
-        }
-    }
-    #[test]
-    fn test_ip_tos() {
-        unsafe {
-            let ip_tos = u8::from_be_bytes(get_ip_tos(&COMMON_DATAGRAM));
-            assert!(ip_tos == 0);
-        }
-    }
-    #[test]
-    fn test_ip_dscp() {
-        unsafe {
-            let ip_dscp = u8::from_be_bytes(get_ip_dscp(&COMMON_DATAGRAM));
-            assert!(ip_dscp == 0);
-        }
-    }
-    #[test]
-    fn test_ip_ecn() {
-        unsafe {
-            let ip_ecn = u8::from_be_bytes(get_ip_ecn(&COMMON_DATAGRAM));
-            assert!(ip_ecn == 0);
-        }
-    }
-    #[test]
-    fn test_ip_total_len() {
-        unsafe {
-            let ip_total_len = u16::from_be_bytes(get_ip_total_len(&COMMON_DATAGRAM));
-            assert!(ip_total_len == 20 + 12); // header + "Hello world!"
-        }
-    }
-    #[test]
-    fn test_ip_id() {
-        unsafe {
-            let ip_id = u16::from_be_bytes(get_ip_identification(&COMMON_DATAGRAM));
-            assert!(ip_id == 10);
-        }
-    }
-    #[test]
-    fn test_ip_res_flag() {
-        unsafe {
-            let ip_res_flag = u8::from_be_bytes(get_ip_reserved_flag(&COMMON_DATAGRAM));
-            assert!(ip_res_flag == 0);
-        }
-    }
-    #[test]
-    fn test_ip_df_flag() {
-        unsafe {
-            let ip_df_flag = u8::from_be_bytes(get_ip_df_flag(&COMMON_DATAGRAM));
-            assert!(ip_df_flag == 0);
-        }
-    }
-    #[test]
-    fn test_ip_mf_flag() {
-        unsafe {
-            let ip_mf_flag = u8::from_be_bytes(get_ip_mf_flag(&COMMON_DATAGRAM));
-            assert!(ip_mf_flag == 0);
-        }
-    }
-    #[test]
-    fn test_ip_fragment_offset() {
-        unsafe {
-            let ip_fragment_offset = u16::from_be_bytes(get_ip_fragment_offset(&COMMON_DATAGRAM));
-            assert!(ip_fragment_offset == 0);
-        }
-    }
-    #[test]
-    fn test_ip_time_to_live() {
-        unsafe {
-            let ip_ttl = u8::from_be_bytes(get_ip_ttl(&COMMON_DATAGRAM));
-            assert!(ip_ttl == 30);
-        }
-    }
-    #[test]
-    fn test_ip_protocol() {
-        unsafe {
-            let ip_proto = u8::from_be_bytes(get_ip_protocol(&COMMON_DATAGRAM));
-            assert!(ip_proto == 6);
-        }
-    }
-    #[test]
-    fn test_ip_checksum() {
-        unsafe {
-            let _ip_checksum = u16::from_be_bytes(get_ip_checksum(&COMMON_DATAGRAM));
-            // FIXME: Find correct checksum and comapre to that
-            // assert!(ip_checksum == 4);
-            assert!(true);
-        }
-    }
-    #[test]
-    fn test_ip_src_addr() {
-        unsafe {
-            let ip_src_addr = get_ip_src_addr(&COMMON_DATAGRAM);
-            assert!(ip_src_addr == [192, 168, 0, 2]);
-        }
-    }
-    #[test]
-    fn test_ip_dst_addr() {
-        unsafe {
-            let ip_dst_addr = get_ip_dst_addr(&COMMON_DATAGRAM);
-            assert!(ip_dst_addr == [192, 168, 0, 3]);
-        }
-    }
-    #[test]
-    fn test_ip_options() {
-        unsafe {
-            let (ip_opts, ip_opts_len) = get_ip_options(&COMMON_DATAGRAM);
-            println!("{}", ip_opts_len);
-            assert!(ip_opts_len == 0);
-            assert!(ip_opts.into_iter().all(|x| x == 0));
-        }
-    }
-    #[test]
-    fn test_ip_data() {
-        unsafe {
-            let (ip_data, ip_data_len) = get_ip_data(&COMMON_DATAGRAM);
-            assert!(ip_data_len == 12);
-            assert!(
-                ip_data.into_iter().take(ip_data_len).collect::<Vec<_>>()
-                    == "Hello world!".as_bytes().to_vec()
-            );
-        }
-    }
+        let ip_ihl = u8::from_be_bytes(get_ip_ihl(&ip_datagram));
+        assert!(ip_ihl == 5);
 
-    #[test]
-    fn test_check_ip_header_checksum() {
-        unsafe {
-            // FIXME:CHECKSUM DOESN't MATCH
-            if !check_ip_checksum(&COMMON_DATAGRAM) {
-                panic!("Checksum doesn't match with check_ip_checksum")
-            }
-        }
-    }
+        let ip_tos = u8::from_be_bytes(get_ip_tos(&ip_datagram));
+        assert!(ip_tos == 0);
 
-    // #[test] // Need to precalculate the checksum with some other service
-    #[allow(unused)]
-    fn test_ip_header_checksum() {
-        assert!(unsafe {
-            get_ip_checksum(&COMMON_DATAGRAM)
-                .to_vec()
-                .into_iter()
-                .zip([1, 30 as u8])
-                .all(|x| x.0 == x.1)
-        })
+        let ip_dscp = u8::from_be_bytes(get_ip_dscp(&ip_datagram));
+        assert!(ip_dscp == 0);
+
+        let ip_ecn = u8::from_be_bytes(get_ip_ecn(&ip_datagram));
+        assert!(ip_ecn == 0);
+
+        let ip_total_len = u16::from_be_bytes(get_ip_total_len(&ip_datagram));
+        assert!(ip_total_len == 20 + 12); // header + "Hello world!"
+
+        let ip_id = u16::from_be_bytes(get_ip_identification(&ip_datagram));
+        assert!(ip_id == 10);
+
+        let ip_res_flag = u8::from_be_bytes(get_ip_reserved_flag(&ip_datagram));
+        assert!(ip_res_flag == 0);
+
+        let ip_df_flag = u8::from_be_bytes(get_ip_df_flag(&ip_datagram));
+        assert!(ip_df_flag == 0);
+
+        let ip_mf_flag = u8::from_be_bytes(get_ip_mf_flag(&ip_datagram));
+        assert!(ip_mf_flag == 0);
+
+        let ip_fragment_offset = u16::from_be_bytes(get_ip_fragment_offset(&ip_datagram));
+        assert!(ip_fragment_offset == 0);
+
+        let ip_ttl = u8::from_be_bytes(get_ip_ttl(&ip_datagram));
+        assert!(ip_ttl == 30);
+
+        let ip_proto = u8::from_be_bytes(get_ip_protocol(&ip_datagram));
+        assert!(ip_proto == 6);
+
+        let ip_checksum = u16::from_be_bytes(get_ip_checksum(&ip_datagram));
+        assert!(ip_checksum == 0x1b79);
+
+        assert!(
+            check_ip_checksum(&ip_datagram),
+            "Checksum doesn't match with check_ip_checksum"
+        );
+
+        let ip_src_addr = get_ip_src_addr(&ip_datagram);
+        assert!(ip_src_addr == [192, 168, 0, 2]);
+
+        let ip_dst_addr = get_ip_dst_addr(&ip_datagram);
+        assert!(ip_dst_addr == [192, 168, 0, 3]);
+
+        let (ip_opts, ip_opts_len) = get_ip_options(&ip_datagram);
+        assert!(ip_opts_len == 0);
+        assert!(ip_opts.into_iter().all(|x| x == 0));
+
+        let (ip_data, ip_data_len) = get_ip_data(&ip_datagram);
+        assert!(ip_data_len == 12);
+        let hello_bytes = "Hello world!".as_bytes().to_vec();
+        let data_vec = ip_data.into_iter().take(ip_data_len).collect::<Vec<_>>();
+        assert!(data_vec == hello_bytes);
     }
 }
