@@ -39,7 +39,6 @@ fn main() -> io::Result<()> {
         print_ip_data(&ip_buf);
 
         println!();
-        #[warn(dead_code)]
         let tcp_packet = get_ip_data(&ip_buf);
 
         print_tcp_data(&tcp_packet);

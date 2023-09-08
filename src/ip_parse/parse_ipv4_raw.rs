@@ -263,89 +263,216 @@ pub fn get_ip_data(buf: &[u8]) -> Vec<u8> {
     result
 }
 
-/* pub fn set_header_version(buf: &[u8; 20], new_ver: [u8; 1]) -> () {
-    let new_field = buf[&];
-    buf[].copy_from_slice(new_ver);
-    let result: [u8; 1] = [(buf[0] & 0b11110000) >> 4];
-    result
+pub fn set_header_version(header: &mut [u8], new_ver: &[u8; 1]) -> () {
+    header[0] = (new_ver[0] << 4) | (header[0] & 0b00001111);
 }
 
-pub fn set_header_ihl(buf: &[u8; 20]) -> () {
-    let result: [u8; 1] = [buf[0] & 0b00001111];
-    result
+pub fn set_header_ihl(header: &mut [u8], new_ihl: &[u8; 1]) -> () {
+    header[0] = (header[0] & 0b11110000) | (new_ihl[0] & 0b00001111);
 }
 
-pub fn set_header_tos(buf: &[u8; 20]) -> () {
-    let result = [buf[1]];
-    result
+pub fn set_header_tos(header: &mut [u8], new_tos: &[u8; 1]) -> () {
+    header[1] = new_tos[0];
 }
 
-pub fn set_header_dscp(buf: &[u8; 20]) -> () {
-    let result = [(buf[1] & 0b11111100) >> 2];
-    result
+pub fn set_header_dscp(header: &mut [u8], new_dscp: &[u8; 1]) -> () {
+    header[1] = (new_dscp[0] << 2) | (header[1] & 0b00000011)
 }
 
-pub fn set_header_ecn(buf: &[u8; 20]) -> () {
-    let result = [buf[1] & 0b00000011];
-    result
+pub fn set_header_ecn(header: &mut [u8], new_ecn: &[u8; 1]) -> () {
+    header[1] = (header[1] & 0b11111100) | (new_ecn[0] & 0b00000011);
 }
 
-pub fn set_header_total_len(buf: &[u8; 20]) -> () {
-    let mut result = [0; 2];
-    result.copy_from_slice(&buf[2..4]);
-    result
+pub fn set_header_total_len(header: &mut [u8], new_total_len: &[u8; 2]) -> () {
+    header[2..4].copy_from_slice(new_total_len);
 }
 
-pub fn set_header_identification(buf: &[u8; 20]) -> () {
-    let mut result = [0; 2];
-    result.copy_from_slice(&buf[4..6]);
-    result
+pub fn set_header_identification(header: &mut [u8], new_identification: &[u8; 2]) -> () {
+    header[4..6].copy_from_slice(new_identification);
 }
 
-pub fn set_header_reserved_flag(buf: &[u8; 20]) -> () {
-    let result: [u8; 1] = [(buf[6] & 0b10000000) >> 7];
-    result
+pub fn set_header_reserved_flag(header: &mut [u8], new_res_flag: bool) -> () {
+    header[6] = if new_res_flag {
+        header[6] | 0b10000000
+    } else {
+        header[6] & 0b01111111
+    };
 }
 
-pub fn set_header_df_flag(buf: &[u8; 20]) -> () {
-    let result: [u8; 1] = [(buf[6] & 0b01000000) >> 6];
-    result
+pub fn set_header_df_flag(header: &mut [u8], new_df_flag: bool) -> () {
+    header[6] = if new_df_flag {
+        header[6] | 0b01000000
+    } else {
+        header[6] & 0b10111111
+    };
 }
 
-pub fn set_header_mf_flag(buf: &[u8; 20]) -> () {
-    let result: [u8; 1] = [(buf[6] & 0b00100000) >> 5];
-    result
+pub fn set_header_mf_flag(header: &mut [u8], new_mf_flag: bool) -> () {
+    header[6] = if new_mf_flag {
+        header[6] | 0b00100000
+    } else {
+        header[6] & 0b11011111
+    };
 }
 
-pub fn set_header_fragment_offset(buf: &[u8; 20]) -> () {
-    let result: [u8; 2] = [((buf[6]) & 0b00011111), buf[7]];
-    result
+/// Only modifies the bits that belong to the fragment offset field. Doesn't leak into other fields.
+pub fn set_header_fragment_offset(header: &mut [u8], new_fragment_offset: &[u8; 2]) -> () {
+    let current_flags = header[6] & 0b11100000;
+    header[6..8].copy_from_slice(&[
+        current_flags | (new_fragment_offset[0] & 0b00011111),
+        new_fragment_offset[1],
+    ]);
 }
 
-pub fn set_header_ttl(buf: &[u8; 20]) -> () {
-    let result = [buf[8]];
-    result
+pub fn set_header_ttl(header: &mut [u8], new_time_to_live: &[u8; 1]) -> () {
+    header[8] = new_time_to_live[0];
 }
 
-pub fn set_header_protocol(buf: &[u8; 20]) -> () {
-    let result = [buf[9]];
-    result
-} */
+pub fn set_header_protocol(header: &mut [u8], new_protocol: &[u8; 1]) -> () {
+    header[9] = new_protocol[0];
+}
 
 pub fn set_header_checksum(header: &mut [u8], checksum: &[u8; 2]) -> () {
     header[10..12].copy_from_slice(checksum);
 }
 
-/* pub fn set_header_src_addr(buf: &[u8; 20]) -> () {
-    let mut result = [0; 4];
-    result.copy_from_slice(&buf[12..16]);
-    result
+pub fn set_header_src_addr(header: &mut [u8], new_src_addr: &[u8; 4]) -> () {
+    header[12..16].copy_from_slice(new_src_addr);
 }
 
-pub fn set_header_dst_addr(buf: &[u8; 20]) -> () {
-    let mut result = [0; 4];
-    result.copy_from_slice(&buf[16..20]);
-    result
+pub fn set_header_dst_addr(header: &mut [u8], new_dst_addr: &[u8; 4]) -> () {
+    header[16..20].copy_from_slice(new_dst_addr);
 }
 
- */
+#[cfg(test)]
+mod ipv4_raw_tests {
+
+    use crate::ip_parse::parse_ipv4_raw::{
+        create_raw_ip_header, get_ip_checksum, get_ip_df_flag, get_ip_dscp, get_ip_dst_addr,
+        get_ip_ecn, get_ip_fragment_offset, get_ip_identification, get_ip_ihl, get_ip_mf_flag,
+        get_ip_protocol, get_ip_reserved_flag, get_ip_src_addr, get_ip_tos, get_ip_total_len,
+        get_ip_ttl, get_ip_version, set_header_checksum, set_header_df_flag, set_header_dscp,
+        set_header_dst_addr, set_header_ecn, set_header_fragment_offset, set_header_identification,
+        set_header_ihl, set_header_mf_flag, set_header_protocol, set_header_reserved_flag,
+        set_header_src_addr, set_header_tos, set_header_total_len, set_header_ttl,
+        set_header_version,
+    };
+
+    #[test]
+    fn test_raw_ipv4_header() {
+        let mut header = create_raw_ip_header(
+            4,
+            5,
+            5,
+            20,
+            10,
+            false,
+            false,
+            false,
+            0,
+            30,
+            6,
+            123,
+            &[192, 168, 0, 2],
+            &[192, 168, 0, 3],
+        );
+        let mut version = u8::from_be_bytes(get_ip_version(&header));
+        assert!(version == 4);
+        set_header_version(&mut header, &[5]);
+        version = u8::from_be_bytes(get_ip_version(&header));
+        assert!(version == 5);
+
+        let mut ihl = u8::from_be_bytes(get_ip_ihl(&header));
+        assert!(ihl == 5);
+        set_header_ihl(&mut header, &[3]);
+        ihl = u8::from_be_bytes(get_ip_ihl(&header));
+        assert!(ihl == 3);
+
+        let mut dscp = u8::from_be_bytes(get_ip_dscp(&header));
+        assert!(dscp == 1);
+
+        let mut ecn = u8::from_be_bytes(get_ip_ecn(&header));
+        assert!(ecn == 1);
+
+        let mut tos = u8::from_be_bytes(get_ip_tos(&header));
+        assert!(tos == 5);
+
+        set_header_dscp(&mut header, &[8]);
+        dscp = u8::from_be_bytes(get_ip_dscp(&header));
+        assert!(dscp == 8);
+
+        set_header_ecn(&mut header, &[3]);
+        ecn = u8::from_be_bytes(get_ip_ecn(&header));
+        assert!(ecn == 3);
+
+        set_header_tos(&mut header, &[25]);
+        tos = u8::from_be_bytes(get_ip_tos(&header));
+        assert!(tos == 25);
+
+        let mut total_len = u16::from_be_bytes(get_ip_total_len(&header));
+        assert!(total_len == 20);
+        set_header_total_len(&mut header, &[1, 1]);
+        total_len = u16::from_be_bytes(get_ip_total_len(&header));
+        assert!(total_len == 257);
+
+        let mut identification = u16::from_be_bytes(get_ip_identification(&header));
+        assert!(identification == 10);
+        set_header_identification(&mut header, &[1, 2]);
+        identification = u16::from_be_bytes(get_ip_identification(&header));
+        assert!(identification == 258);
+
+        let mut reserved = u8::from_be_bytes(get_ip_reserved_flag(&header));
+        assert!(reserved == 0);
+        set_header_reserved_flag(&mut header, true);
+        reserved = u8::from_be_bytes(get_ip_reserved_flag(&header));
+        assert!(reserved == 1);
+
+        let mut df_flag = u8::from_be_bytes(get_ip_df_flag(&header));
+        assert!(df_flag == 0);
+        set_header_df_flag(&mut header, true);
+        df_flag = u8::from_be_bytes(get_ip_df_flag(&header));
+        assert!(df_flag == 1);
+
+        let mut mf_flag = u8::from_be_bytes(get_ip_mf_flag(&header));
+        assert!(mf_flag == 0);
+        set_header_mf_flag(&mut header, true);
+        mf_flag = u8::from_be_bytes(get_ip_mf_flag(&header));
+        assert!(mf_flag == 1);
+
+        let mut fragment_offset = u16::from_be_bytes(get_ip_fragment_offset(&header));
+        assert!(fragment_offset == 0);
+        set_header_fragment_offset(&mut header, &[1, 4]);
+        fragment_offset = u16::from_be_bytes(get_ip_fragment_offset(&header));
+        assert!(fragment_offset == 260);
+
+        let mut time_to_live = u8::from_be_bytes(get_ip_ttl(&header));
+        assert!(time_to_live == 30);
+        set_header_ttl(&mut header, &[12]);
+        time_to_live = u8::from_be_bytes(get_ip_ttl(&header));
+        assert!(time_to_live == 12);
+
+        let mut protocol = u8::from_be_bytes(get_ip_protocol(&header));
+        assert!(protocol == 6);
+        set_header_protocol(&mut header, &[20]);
+        protocol = u8::from_be_bytes(get_ip_protocol(&header));
+        assert!(protocol == 20);
+
+        let mut checksum = u16::from_be_bytes(get_ip_checksum(&header));
+        assert!(checksum == 123);
+        set_header_checksum(&mut header, &[1, 5]);
+        checksum = u16::from_be_bytes(get_ip_checksum(&header));
+        assert!(checksum == 261);
+
+        let mut src_addr = get_ip_src_addr(&header);
+        assert!(src_addr == [192, 168, 0, 2]);
+        set_header_src_addr(&mut header, &[2, 2, 2, 2]);
+        src_addr = get_ip_src_addr(&header);
+        assert!(src_addr == [2, 2, 2, 2]);
+
+        let mut dst_addr: [u8; 4] = get_ip_dst_addr(&header);
+        assert!(dst_addr == [192, 168, 0, 3]);
+        set_header_dst_addr(&mut header, &[3, 3, 3, 3]);
+        dst_addr = get_ip_dst_addr(&header);
+        assert!(dst_addr == [3, 3, 3, 3]);
+    }
+}
