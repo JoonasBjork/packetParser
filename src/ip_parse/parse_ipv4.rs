@@ -5,21 +5,6 @@
 //! The implementational library would instead contain implementations for things such as printing ipv4 data, checking checksum,
 //! creating ipv4 datagrams by making sure that its fields are correct, parsing datagrams based on the ip version, ...
 /// Error data structure, can contain many errors so that all known errors can be returned at once.
-pub struct DatagramError(pub Vec<String>);
-
-impl DatagramError {
-    pub fn new() -> Self {
-        DatagramError(Vec::new())
-    }
-
-    pub fn push(&mut self, error_message: &str) {
-        self.0.push(error_message.to_string());
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
 
 // pub fn create_ip_header()
 
@@ -274,9 +259,8 @@ pub fn get_ip_options(buf: &[u8]) -> (Result<[u8; 60], ()>, usize) {
 pub fn get_ip_data(buf: &[u8]) -> Vec<u8> {
     let header_len_in_bytes = (get_ip_ihl(buf)[0] * 4) as usize;
     let datagram_len_in_bytes = u16::from_be_bytes(get_ip_total_len(buf)) as usize;
-    let data_len_in_bytes = datagram_len_in_bytes - header_len_in_bytes;
 
-    let mut result: Vec<u8> = Vec::with_capacity(data_len_in_bytes);
+    let mut result: Vec<u8> = Vec::with_capacity(datagram_len_in_bytes - header_len_in_bytes);
     result.extend(&buf[header_len_in_bytes..datagram_len_in_bytes]);
     result
 }
