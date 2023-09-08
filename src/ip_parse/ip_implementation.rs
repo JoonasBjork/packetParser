@@ -1,26 +1,11 @@
 //! Contains implementational details that make using the IPv4 protocol as easy for the user as possible.
 
+// Possibly create another file for working specifically with TCP (or any other protocol).
+
 use crate::ip_parse::parse_ipv4::*;
 use crate::ip_parse::parse_tables;
 
-/// Error data structure, can contain many errors so that all known errors can be returned at once.
-pub struct DatagramError(pub Vec<String>);
-
-impl DatagramError {
-    fn new() -> Self {
-        DatagramError(Vec::new())
-    }
-
-    fn push(&mut self, error_message: &str) {
-        self.0.push(error_message.to_string());
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-/// Returns a vector of ip datagrams. The ip datagrams are arrays of bytes. Automatically fragments the packets if allowed,
+/// Returns a vector of ip datagrams. The ip datagrams are arrays of bytes. Automatically fragments the packets if allowed by the DF flag,
 /// otherwise returns error.
 ///
 /// The two least significant bits are the ecn.
@@ -48,7 +33,7 @@ pub fn create_ip_datagrams(
     data: &Vec<u8>,
     max_fragment_size: u32,
     first_ip_identification: &mut u16,
-) -> Result<Vec<[u8; 65535]>, DatagramError> {
+) -> Result<Vec<Vec<u8>>, DatagramError> {
     let mut datagram_errors = DatagramError::new();
     let max_data_field_size: u32 = max_fragment_size - 60; // Remove size of header
 
@@ -66,26 +51,21 @@ pub fn create_ip_datagrams(
     if 20 + options.len() + data.len() > 65535 {
         datagram_errors.push("The joint length of options and data is over 65535");
     }
-    // if fragment_offset > 0b0001111111111111 {
-    //     datagram_errors.push("Fragment_offset is over 15 bits");
-    // }
     if time_to_live <= 0 {
         datagram_errors.push("Time_to_live <= 0");
     }
 
-    // Set arbitrary hard limit of the data field in a single packet to 1400
     if (df_flag == true && data.len() as u32 > max_data_field_size) {
         datagram_errors.push(
             "Don't fragment flag is set but the amount of data surpasses limit of 1400 bytes",
         );
     }
 
-    // It can be checked that the protocol is known with get_proto_name but someone might also be testing their own protocol so that check isn't added.
     if !datagram_errors.is_empty() {
         return Err(datagram_errors);
     }
 
-    let mut created_datagrams: Vec<[u8; 65535]> = Vec::new();
+    let mut created_datagrams: Vec<Vec<u8>> = Vec::new();
 
     let ihl: u8 = (5 + (options.len() + 3) / 4) as u8; // Small arithmetic trick to always get just large enough ihl.
     let single_datagram_len: u32 = 20 + options.len() as u32 + data.len() as u32;
@@ -110,7 +90,7 @@ pub fn create_ip_datagrams(
         );
         let checksum = calculate_checksum(&header);
         set_header_checksum(&mut header, &checksum);
-        let datagram = create_raw_ip_datagram_from_header(header, options, data);
+        let datagram = create_raw_ip_datagram_from_header(&header, options, data);
         created_datagrams.push(datagram);
         *first_ip_identification += 1;
     } else {
@@ -143,7 +123,7 @@ pub fn create_ip_datagrams(
             let checksum = calculate_checksum(&header);
             set_header_checksum(&mut header, &checksum);
             let datagram =
-                create_raw_ip_datagram_from_header(header, options, current_datagram_data);
+                create_raw_ip_datagram_from_header(&header, options, current_datagram_data);
             created_datagrams.push(datagram);
             *first_ip_identification += 1;
         }
@@ -157,7 +137,7 @@ pub fn create_ip_datagrams(
 /// * The `header` parameter is the ip datagram header excluding the options field.
 /// Helper function for creating an ip datagram. Skips over the checksum bytes in the header.
 #[allow(unused)]
-fn calculate_checksum(header: &[u8; 20]) -> [u8; 2] {
+pub fn calculate_checksum(header: &[u8; 20]) -> [u8; 2] {
     let mut sum: u16 = 0;
     let mut current_field = [0; 2];
     for k in (0..20).step_by(2) {
@@ -201,13 +181,13 @@ pub fn parse_ip_string_to_bytes(ip: &str) -> Result<[u8; 4], ()> {
 }
 
 /// Validates the entire datagram. Returns an empty Ok if the datagram is valid and Err with a DatagramError if it isn't valid.
-pub fn validate_full_ip_datagram(buf: &[u8; 65535]) -> Result<(), DatagramError> {
+pub fn validate_full_ip_datagram(buf: &[u8]) -> Result<(), DatagramError> {
     let mut datagram_errors = DatagramError::new();
     if !check_ip_checksum(buf) {
         datagram_errors.push("Datagram header checksum doesn't match");
     }
 
-    if get_ip_version(&buf)[0] != 4 as u8 {
+    if get_ip_version(&buf[..])[0] != 4 as u8 {
         datagram_errors.push("Datagram ip version doesn't match 4");
     }
 
@@ -234,7 +214,7 @@ pub fn validate_full_ip_datagram(buf: &[u8; 65535]) -> Result<(), DatagramError>
 }
 
 /// Returns True if the checksum field matches the header's checksum
-pub fn check_ip_checksum(buf: &[u8; 65535]) -> bool {
+pub fn check_ip_checksum(buf: &[u8]) -> bool {
     let mut sum: u16 = 0;
     let mut current_field = [0; 2];
     for k in (0..20).step_by(2) {
@@ -252,7 +232,7 @@ pub fn check_ip_checksum(buf: &[u8; 65535]) -> bool {
 }
 
 /// Prints out all data of the IP datagram.
-pub fn print_ip_data(buf: &[u8; 65535]) -> () {
+pub fn print_ip_data(buf: &[u8]) -> () {
     let ip_version = u8::from_be_bytes(get_ip_version(&buf));
     let ip_ihl = u8::from_be_bytes(get_ip_ihl(&buf));
     let ip_tos = u8::from_be_bytes(get_ip_tos(&buf));
@@ -270,7 +250,7 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
     let ip_src_addr = get_ip_src_addr(&buf);
     let ip_dst_addr = get_ip_dst_addr(&buf);
     let (ip_opts, ip_opts_len) = get_ip_options(&buf);
-    let (ip_data, ip_data_len) = get_ip_data(&buf);
+    let ip_data = get_ip_data(&buf);
 
     println!("IP DATAGRAM INFO:");
 
@@ -304,11 +284,7 @@ pub fn print_ip_data(buf: &[u8; 65535]) -> () {
         ),
         Err(()) => println!("ip_opts couldn't be found as the ihl field < 5"),
     }
-    println!(
-        "ip_data: {:x?}, data_len: {}",
-        ip_data[..ip_data_len].to_vec(),
-        ip_data_len
-    );
+    println!("ip_data: {:x?}, data_len: {}", ip_data, ip_data.len(),);
 }
 
 /// Unit tests for the parse_ipv4 file
@@ -357,7 +333,7 @@ mod ipv4_tests {
             vec![5; 1000].as_slice(),
         ]
         .concat();
-        let ip_datagrams = match create_ip_datagrams(
+        let mut ip_datagrams = match create_ip_datagrams(
             0b00000000,
             false,
             30,
@@ -376,11 +352,11 @@ mod ipv4_tests {
             }
         };
 
-        let d1 = ip_datagrams[0];
-        let d2 = ip_datagrams[1];
-        let d3 = ip_datagrams[2];
-
         assert!(ip_datagrams.len() == 3);
+
+        let d3 = ip_datagrams.remove(2);
+        let d2 = ip_datagrams.remove(1);
+        let d1 = ip_datagrams.remove(0);
 
         let d1_total_len = u16::from_be_bytes(get_ip_total_len(&d1));
         let d2_total_len = u16::from_be_bytes(get_ip_total_len(&d2));
@@ -427,7 +403,7 @@ mod ipv4_tests {
     #[test]
     fn test_ip_datagram_and_parsing() {
         let mut identifier = 10;
-        let ip_datagrams = match create_ip_datagrams(
+        let mut ip_datagrams = match create_ip_datagrams(
             0b00000000,
             false,
             30,
@@ -448,7 +424,7 @@ mod ipv4_tests {
 
         assert!(ip_datagrams.len() == 1);
 
-        let datagram = ip_datagrams[0];
+        let datagram = ip_datagrams.remove(0);
 
         let ip_version = u8::from_be_bytes(get_ip_version(&datagram));
         assert!(ip_version == 4);
@@ -512,10 +488,9 @@ mod ipv4_tests {
         );
         assert!(ip_opts.unwrap().into_iter().all(|x| x == 0));
 
-        let (ip_data, ip_data_len) = get_ip_data(&datagram);
-        assert!(ip_data_len == 12);
+        let ip_data = get_ip_data(&datagram);
+        assert!(ip_data.len() == 12);
         let hello_bytes = "Hello world!".as_bytes().to_vec();
-        let data_vec = ip_data.into_iter().take(ip_data_len).collect::<Vec<_>>();
-        assert!(data_vec == hello_bytes);
+        assert!(ip_data == hello_bytes);
     }
 }

@@ -4,6 +4,22 @@
 //!  
 //! The implementational library would instead contain implementations for things such as printing ipv4 data, checking checksum,
 //! creating ipv4 datagrams by making sure that its fields are correct, parsing datagrams based on the ip version, ...
+/// Error data structure, can contain many errors so that all known errors can be returned at once.
+pub struct DatagramError(pub Vec<String>);
+
+impl DatagramError {
+    pub fn new() -> Self {
+        DatagramError(Vec::new())
+    }
+
+    pub fn push(&mut self, error_message: &str) {
+        self.0.push(error_message.to_string());
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 // pub fn create_ip_header()
 
@@ -23,9 +39,9 @@ pub fn create_raw_ip_datagram(
     header_checksum: u16,
     src_addr: &[u8; 4],
     dst_addr: &[u8; 4],
-    options: &Vec<u8>,
-    data: &Vec<u8>,
-) -> [u8; 65535] {
+    options: &[u8],
+    data: &[u8],
+) -> Vec<u8> {
     let mut header: [u8; 20] = [0; 20];
     header[0] = (version << 4) | (ihl & 0b00001111); // Ip version and ihl
     header[1] = dscp_ecn;
@@ -44,10 +60,10 @@ pub fn create_raw_ip_datagram(
     header[12..16].copy_from_slice(src_addr);
     header[16..20].copy_from_slice(dst_addr);
 
-    let mut result: [u8; 65535] = [0; 65535];
-    result[0..20].copy_from_slice(&header);
-    result[20..20 + options.len()].copy_from_slice(&options);
-    result[20 + options.len()..20 + options.len() + data.len()].copy_from_slice(&data);
+    let mut result: Vec<u8> = Vec::with_capacity(20 + options.len() + data.len());
+    result.extend(&header);
+    result.extend(options);
+    result.extend(data);
     result
 }
 
@@ -112,38 +128,38 @@ pub fn create_raw_ip_header(
 ///
 /// NOTE: The function doesn't check if the values are correct. The user should make sure that fields such as IHL and total_length match the datagram.
 pub fn create_raw_ip_datagram_from_header(
-    header: [u8; 20],
-    options: &Vec<u8>,
-    data: &Vec<u8>,
-) -> [u8; 65535] {
-    let mut result: [u8; 65535] = [0; 65535];
-    result[0..20].copy_from_slice(&header);
-    result[20..20 + options.len()].copy_from_slice(&options);
-    result[20 + options.len()..20 + options.len() + data.len()].copy_from_slice(&data);
+    header: &[u8; 20],
+    options: &[u8],
+    data: &[u8],
+) -> Vec<u8> {
+    let mut result: Vec<u8> = Vec::with_capacity(20 + options.len() + data.len());
+    result.extend(header);
+    result.extend(options);
+    result.extend(data);
     result
 }
 
 /// Returns an array with ip version in the datagram
-pub fn get_ip_version(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_version(buf: &[u8]) -> [u8; 1] {
     let result: [u8; 1] = [(buf[0] & 0b11110000) >> 4];
     result
 }
 
 /// Returns an array with the header size of the ip datagram
-pub fn get_ip_ihl(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_ihl(buf: &[u8]) -> [u8; 1] {
     let result: [u8; 1] = [buf[0] & 0b00001111];
     result
 }
 
 /// Returns an array with the type of service field
-pub fn get_ip_tos(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_tos(buf: &[u8]) -> [u8; 1] {
     let result = [buf[1]];
     result
 }
 
 /// Returns an array with the DSCP field,
 /// which contains information about differentiated services
-pub fn get_ip_dscp(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_dscp(buf: &[u8]) -> [u8; 1] {
     let result = [(buf[1] & 0b11111100) >> 2];
     result
 }
@@ -151,28 +167,28 @@ pub fn get_ip_dscp(buf: &[u8; 65535]) -> [u8; 1] {
 /// Return an array with the ECN field,
 /// which contains end-to-end notification of network congestion
 /// without dropping datagrams
-pub fn get_ip_ecn(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_ecn(buf: &[u8]) -> [u8; 1] {
     let result = [buf[1] & 0b00000011];
     result
 }
 
 /// Returns an array with the total length field.
 /// Total length is expressed in the number of bytes.
-pub fn get_ip_total_len(buf: &[u8; 65535]) -> [u8; 2] {
+pub fn get_ip_total_len(buf: &[u8]) -> [u8; 2] {
     let mut result = [0; 2];
     result.copy_from_slice(&buf[2..4]);
     result
 }
 
 /// Returns an array with the
-pub fn get_ip_identification(buf: &[u8; 65535]) -> [u8; 2] {
+pub fn get_ip_identification(buf: &[u8]) -> [u8; 2] {
     let mut result = [0; 2];
     result.copy_from_slice(&buf[4..6]);
     result
 }
 
 /// Returns an array with the reserved flag. Should always be 0.
-pub fn get_ip_reserved_flag(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_reserved_flag(buf: &[u8]) -> [u8; 1] {
     let result: [u8; 1] = [(buf[6] & 0b10000000) >> 7];
     result
 }
@@ -180,7 +196,7 @@ pub fn get_ip_reserved_flag(buf: &[u8; 65535]) -> [u8; 1] {
 /// Returns an array with the DF flag (Don't Fragment) as either 1 or 0.
 /// If set, prevents fragmentation of the packet. If fragmentation is required to route the datagram through the network,
 /// the datagram is dropped.
-pub fn get_ip_df_flag(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_df_flag(buf: &[u8]) -> [u8; 1] {
     let result: [u8; 1] = [(buf[6] & 0b01000000) >> 6];
     result
 }
@@ -189,7 +205,7 @@ pub fn get_ip_df_flag(buf: &[u8; 65535]) -> [u8; 1] {
 /// For unfragmented datagrams, the MF flag is 0. For fragmented datagrams, all fragments
 /// except the last one have the MF flag as 1. The last fragment has a non-zero Fragment Offset field,
 /// differentiating it from an unfragmented datagram.
-pub fn get_ip_mf_flag(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_mf_flag(buf: &[u8]) -> [u8; 1] {
     let result: [u8; 1] = [(buf[6] & 0b00100000) >> 5];
     result
 }
@@ -198,41 +214,41 @@ pub fn get_ip_mf_flag(buf: &[u8; 65535]) -> [u8; 1] {
 /// The fragment offset field specifies the offset of a particular fragment
 /// relative to the beginning of the original unfragmented IP datagram.
 /// Always 0 for the first fragment.
-pub fn get_ip_fragment_offset(buf: &[u8; 65535]) -> [u8; 2] {
+pub fn get_ip_fragment_offset(buf: &[u8]) -> [u8; 2] {
     let result: [u8; 2] = [((buf[6]) & 0b00011111), buf[7]];
     result
 }
 
 /// Returns an array with the time to live field.
 /// Limits the nubmer of hops that a datagram can travel
-pub fn get_ip_ttl(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_ttl(buf: &[u8]) -> [u8; 1] {
     let result = [buf[8]];
     result
 }
 
 /// Returns an array with the protocol used in the data portion of the ip datagram.
 /// For reference https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
-pub fn get_ip_protocol(buf: &[u8; 65535]) -> [u8; 1] {
+pub fn get_ip_protocol(buf: &[u8]) -> [u8; 1] {
     let result = [buf[9]];
     result
 }
 
 /// Returns an array with the IPv4 header checksum field.  
-pub fn get_ip_checksum(buf: &[u8; 65535]) -> [u8; 2] {
+pub fn get_ip_checksum(buf: &[u8]) -> [u8; 2] {
     let mut result = [0; 2];
     result.copy_from_slice(&buf[10..12]);
     result
 }
 
 /// Returns an array with the senders IPv4 address
-pub fn get_ip_src_addr(buf: &[u8; 65535]) -> [u8; 4] {
+pub fn get_ip_src_addr(buf: &[u8]) -> [u8; 4] {
     let mut result = [0; 4];
     result.copy_from_slice(&buf[12..16]);
     result
 }
 
 /// Returns an array with the recipients IPv4 address
-pub fn get_ip_dst_addr(buf: &[u8; 65535]) -> [u8; 4] {
+pub fn get_ip_dst_addr(buf: &[u8]) -> [u8; 4] {
     let mut result = [0; 4];
     result.copy_from_slice(&buf[16..20]);
     result
@@ -241,7 +257,7 @@ pub fn get_ip_dst_addr(buf: &[u8; 65535]) -> [u8; 4] {
 /// Returns an array in a Result with the options field in the header
 /// and the number of bytes that are a part of the options field
 /// If the ihl field of the provided header is less than 5, returns an error as the datagram is malformed.
-pub fn get_ip_options(buf: &[u8; 65535]) -> (Result<[u8; 60], ()>, usize) {
+pub fn get_ip_options(buf: &[u8]) -> (Result<[u8; 60], ()>, usize) {
     let ihl_value = u8::from_be_bytes(get_ip_ihl(buf));
 
     if ihl_value < 5 {
@@ -255,14 +271,14 @@ pub fn get_ip_options(buf: &[u8; 65535]) -> (Result<[u8; 60], ()>, usize) {
 }
 
 /// Returns an array with the datagrams data section and the data section's size in bytes.
-pub fn get_ip_data(buf: &[u8; 65535]) -> ([u8; 65535], usize) {
+pub fn get_ip_data(buf: &[u8]) -> Vec<u8> {
     let header_len_in_bytes = (get_ip_ihl(buf)[0] * 4) as usize;
     let datagram_len_in_bytes = u16::from_be_bytes(get_ip_total_len(buf)) as usize;
     let data_len_in_bytes = datagram_len_in_bytes - header_len_in_bytes;
 
-    let mut result: [u8; 65535] = [0; 65535];
-    result[..data_len_in_bytes].copy_from_slice(&buf[header_len_in_bytes..datagram_len_in_bytes]);
-    (result, data_len_in_bytes)
+    let mut result: Vec<u8> = Vec::with_capacity(data_len_in_bytes);
+    result.extend(&buf[header_len_in_bytes..datagram_len_in_bytes]);
+    result
 }
 
 /* pub fn set_header_version(buf: &[u8; 20], new_ver: [u8; 1]) -> () {
@@ -334,7 +350,7 @@ pub fn set_header_protocol(buf: &[u8; 20]) -> () {
     result
 } */
 
-pub fn set_header_checksum(header: &mut [u8; 20], checksum: &[u8; 2]) -> () {
+pub fn set_header_checksum(header: &mut [u8], checksum: &[u8; 2]) -> () {
     header[10..12].copy_from_slice(checksum);
 }
 

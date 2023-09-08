@@ -39,13 +39,13 @@ fn main() -> io::Result<()> {
         print_ip_data(&ip_buf);
 
         println!();
-        #[warn(dead_code)]
-        let (tcp_packet, tcp_packet_len) = get_ip_data(&ip_buf);
+        // #[warn(dead_code)]
+        // let tcp_packet = get_ip_data(&ip_buf);
 
-        print_tcp_data(&tcp_packet, tcp_packet_len);
-        println!("tcp_packet_len: {}", tcp_packet_len);
+        // print_tcp_data(&tcp_packet, tcp_packet_len);
+        // println!("tcp_packet_len: {}", tcp_packet_len);
 
-        println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
+        // println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
     }
     /* Ok(()) */
 }
