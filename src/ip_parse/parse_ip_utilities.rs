@@ -2,7 +2,7 @@
 
 // Possibly create another file for working specifically with TCP (or any other protocol).
 
-use crate::ip_parse::parse_ipv4::*;
+use crate::ip_parse::parse_ipv4_raw::*;
 use crate::ip_parse::parse_tables;
 
 pub struct DatagramError(pub Vec<String>);
@@ -306,10 +306,10 @@ pub fn print_ip_data(buf: &[u8]) -> () {
 /// Unit tests for the parse_ipv4 file
 #[cfg(test)]
 mod ipv4_tests {
-    use crate::ip_parse::ip_implementation::{
+    use crate::ip_parse::parse_ip_utilities::{
         check_ip_checksum, create_ip_datagrams, parse_ip_string_to_bytes,
     };
-    use crate::ip_parse::parse_ipv4::{
+    use crate::ip_parse::parse_ipv4_raw::{
         get_ip_checksum, get_ip_data, get_ip_df_flag, get_ip_dscp, get_ip_dst_addr, get_ip_ecn,
         get_ip_fragment_offset, get_ip_identification, get_ip_ihl, get_ip_mf_flag, get_ip_options,
         get_ip_protocol, get_ip_reserved_flag, get_ip_src_addr, get_ip_tos, get_ip_total_len,

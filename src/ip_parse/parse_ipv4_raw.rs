@@ -6,8 +6,6 @@
 //! creating ipv4 datagrams by making sure that its fields are correct, parsing datagrams based on the ip version, ...
 /// Error data structure, can contain many errors so that all known errors can be returned at once.
 
-// pub fn create_ip_header()
-
 /// Returns a full IPv4 datagram as an array of bytes.
 pub fn create_raw_ip_datagram(
     version: u8,

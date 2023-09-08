@@ -5,8 +5,8 @@ mod tcp;
 mod tcp_parse;
 
 use ether_parse::parse_ether::*;
-use ip_parse::{ip_implementation::*, parse_ipv4::*};
-use tcp_parse::parse_tcp::*;
+use ip_parse::{parse_ip_utilities::*, parse_ipv4_raw::*};
+use tcp_parse::parse_tcp_utilities::*;
 
 fn main() -> io::Result<()> {
     println!("Hello, world!");
@@ -39,13 +39,12 @@ fn main() -> io::Result<()> {
         print_ip_data(&ip_buf);
 
         println!();
-        // #[warn(dead_code)]
-        // let tcp_packet = get_ip_data(&ip_buf);
+        #[warn(dead_code)]
+        let tcp_packet = get_ip_data(&ip_buf);
 
-        // print_tcp_data(&tcp_packet, tcp_packet_len);
-        // println!("tcp_packet_len: {}", tcp_packet_len);
+        print_tcp_data(&tcp_packet);
 
-        // println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
+        println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
     }
     /* Ok(()) */
 }
