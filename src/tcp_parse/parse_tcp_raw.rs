@@ -1,3 +1,93 @@
+pub fn create_raw_tcp_packet(
+    src_port: u16,
+    dst_port: u16,
+    seq_no: u32,
+    ack_no: u32,
+    data_offset: u8,
+    reserved: u8,
+    cwr_flag: bool,
+    ece_flag: bool,
+    urg_flag: bool,
+    ack_flag: bool,
+    psh_flag: bool,
+    rst_flag: bool,
+    syn_flag: bool,
+    fin_flag: bool,
+    window_size: u16,
+    checksum: u16,
+    urg_ptr: u16,
+    options: &[u8],
+    data: &[u8],
+) -> Vec<u8> {
+    let mut header = create_raw_tcp_header(
+        src_port,
+        dst_port,
+        seq_no,
+        ack_no,
+        data_offset,
+        reserved,
+        cwr_flag,
+        ece_flag,
+        urg_flag,
+        ack_flag,
+        psh_flag,
+        rst_flag,
+        syn_flag,
+        fin_flag,
+        window_size,
+        checksum,
+        urg_ptr,
+        options,
+    );
+    header.extend(data);
+
+    header
+}
+
+pub fn create_raw_tcp_header(
+    src_port: u16,
+    dst_port: u16,
+    seq_no: u32,
+    ack_no: u32,
+    data_offset: u8,
+    reserved: u8,
+    cwr_flag: bool,
+    ece_flag: bool,
+    urg_flag: bool,
+    ack_flag: bool,
+    psh_flag: bool,
+    rst_flag: bool,
+    syn_flag: bool,
+    fin_flag: bool,
+    window_size: u16,
+    checksum: u16,
+    urg_ptr: u16,
+    options: &[u8],
+) -> Vec<u8> {
+    let mut header = Vec::with_capacity(20 + options.len());
+    header.extend(src_port.to_be_bytes());
+    header.extend(dst_port.to_be_bytes());
+    header.extend(seq_no.to_be_bytes());
+    header.extend(ack_no.to_be_bytes());
+    header.push((data_offset << 4) | (reserved & 0b00001111));
+    header.push(
+        (cwr_flag as u8) << 7
+            | (ece_flag as u8) << 6
+            | (urg_flag as u8) << 5
+            | (ack_flag as u8) << 4
+            | (psh_flag as u8) << 3
+            | (rst_flag as u8) << 2
+            | (syn_flag as u8) << 1
+            | (fin_flag as u8),
+    );
+    header.extend(window_size.to_be_bytes());
+    header.extend(checksum.to_be_bytes());
+    header.extend(urg_ptr.to_be_bytes());
+    header.extend(options);
+
+    header
+}
+
 /// Returns an array with the source port number
 pub fn get_tcp_src_port(buf: &[u8]) -> [u8; 2] {
     let mut result = [0; 2];
