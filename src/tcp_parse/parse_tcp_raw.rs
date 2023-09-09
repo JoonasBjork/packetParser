@@ -125,20 +125,25 @@ pub fn get_tcp_data_offset(buf: &[u8]) -> [u8; 1] {
 }
 
 /// Returns an array with the reserved field. Must be set to zeros.
-pub fn get_tcp_reserved(buf: &[u8]) -> [u8; 1] {
+pub fn get_tcp_4bit_reserved(buf: &[u8]) -> [u8; 1] {
+    let result = [((buf[12] & 0b00001111) << 2)];
+    result
+}
+
+pub fn get_tcp_6bit_reserved(buf: &[u8]) -> [u8; 1] {
     let result = [((buf[12] & 0b00001111) << 2) + ((buf[13] & 0b11000000) >> 6)];
     result
 }
 
 /// Returns an array with the URG flag
 pub fn get_tcp_cwr_flag(buf: &[u8]) -> [u8; 1] {
-    let result = [(buf[13] & 0b10000000) >> 5];
+    let result = [(buf[13] & 0b10000000) >> 7];
     result
 }
 
 /// Returns an array with the URG flag
 pub fn get_tcp_ece_flag(buf: &[u8]) -> [u8; 1] {
-    let result = [(buf[13] & 0b01000000) >> 5];
+    let result = [(buf[13] & 0b01000000) >> 6];
     result
 }
 
@@ -238,13 +243,13 @@ mod ipv4_tests {
             200,
             5,
             0,
+            true,
             false,
+            true,
             false,
+            true,
             false,
-            false,
-            false,
-            false,
-            false,
+            true,
             false,
             8000,
             0,
@@ -264,23 +269,25 @@ mod ipv4_tests {
 
         let data_offset = u8::from_be_bytes(get_tcp_data_offset(&tcp_packet));
         assert!(data_offset == 5);
-        let reserved = u8::from_be_bytes(get_tcp_reserved(&tcp_packet));
-        assert!(reserved == 0);
+        let reserved1 = u8::from_be_bytes(get_tcp_4bit_reserved(&tcp_packet));
+        assert!(reserved1 == 0);
+        let reserved2 = u8::from_be_bytes(get_tcp_6bit_reserved(&tcp_packet));
+        assert!(reserved2 == 2);
 
         let cwr_flag = u8::from_be_bytes(get_tcp_cwr_flag(&tcp_packet));
-        assert!(cwr_flag == 0);
+        assert!(cwr_flag == 1);
         let ece_flag = u8::from_be_bytes(get_tcp_ece_flag(&tcp_packet));
         assert!(ece_flag == 0);
         let urg_flag = u8::from_be_bytes(get_tcp_urg_flag(&tcp_packet));
-        assert!(urg_flag == 0);
+        assert!(urg_flag == 1);
         let ack_flag = u8::from_be_bytes(get_tcp_ack_flag(&tcp_packet));
         assert!(ack_flag == 0);
         let psh_flag = u8::from_be_bytes(get_tcp_psh_flag(&tcp_packet));
-        assert!(psh_flag == 0);
+        assert!(psh_flag == 1);
         let rst_flag = u8::from_be_bytes(get_tcp_rst_flag(&tcp_packet));
         assert!(rst_flag == 0);
         let syn_flag = u8::from_be_bytes(get_tcp_syn_flag(&tcp_packet));
-        assert!(syn_flag == 0);
+        assert!(syn_flag == 1);
         let fin_flag = u8::from_be_bytes(get_tcp_fin_flag(&tcp_packet));
         assert!(fin_flag == 0);
 

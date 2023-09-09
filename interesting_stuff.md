@@ -7,3 +7,4 @@
 - Rust's tests are not guaranteed to run in any particular order. They usually follow alphabetical order though. One reason for this is that the tests are automatically run in parallel. Therefore the tester can't expect to set up a global data structure in one test and know it exists in another test. 
 - Some parts of the TCP header possibly need be included in every IPv4 fragment.  
 - A [very good tutorial](https://www.youtube.com/watch?v=4SZXbl9KVsw) for setting up an X server (X11 forwarding). I used this to run wireshark on WSL. 
+- The TCP checksum also takes into account parts of the ip header (the pseudo ip header). This adds a challenge to the division of responsibilities when implementing the TCP parsing functions. 

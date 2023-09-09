@@ -346,16 +346,7 @@ pub fn set_header_dst_addr(header: &mut [u8], new_dst_addr: &[u8; 4]) -> () {
 #[cfg(test)]
 mod ipv4_raw_tests {
 
-    use crate::ip_parse::parse_ipv4_raw::{
-        create_raw_ip_header, get_ip_checksum, get_ip_df_flag, get_ip_dscp, get_ip_dst_addr,
-        get_ip_ecn, get_ip_fragment_offset, get_ip_identification, get_ip_ihl, get_ip_mf_flag,
-        get_ip_protocol, get_ip_reserved_flag, get_ip_src_addr, get_ip_tos, get_ip_total_len,
-        get_ip_ttl, get_ip_version, set_header_checksum, set_header_df_flag, set_header_dscp,
-        set_header_dst_addr, set_header_ecn, set_header_fragment_offset, set_header_identification,
-        set_header_ihl, set_header_mf_flag, set_header_protocol, set_header_reserved_flag,
-        set_header_src_addr, set_header_tos, set_header_total_len, set_header_ttl,
-        set_header_version,
-    };
+    use crate::ip_parse::parse_ipv4_raw::*;
 
     #[test]
     fn test_raw_ipv4_header() {

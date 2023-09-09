@@ -49,7 +49,9 @@ pub fn print_tcp_data(buf: &[u8]) -> () {
     let seqn = u32::from_be_bytes(get_tcp_seqnum(&buf));
     let acknum = u32::from_be_bytes(get_tcp_acknum(&buf));
     let data_offset = u8::from_be_bytes(get_tcp_data_offset(&buf));
-    let reserved = u8::from_be_bytes(get_tcp_reserved(&buf));
+    let reserved = u8::from_be_bytes(get_tcp_4bit_reserved(&buf));
+    let cwr_flag = u8::from_be_bytes(get_tcp_cwr_flag(&buf));
+    let ece_flag = u8::from_be_bytes(get_tcp_ece_flag(&buf));
     let urg_flag = u8::from_be_bytes(get_tcp_urg_flag(&buf));
     let ack_flag = u8::from_be_bytes(get_tcp_ack_flag(&buf));
     let psh_flag = u8::from_be_bytes(get_tcp_psh_flag(&buf));
@@ -74,6 +76,8 @@ pub fn print_tcp_data(buf: &[u8]) -> () {
         data_offset * 4
     );
     println!("reserved: {}", reserved);
+    println!("cwr_flag: {}", cwr_flag);
+    println!("ece_flag: {}", ece_flag);
     println!("urg_flag: {}", urg_flag);
     println!("ack_flag: {}", ack_flag);
     println!("psh_flag: {}", psh_flag);
@@ -172,7 +176,7 @@ pub fn calculate_tcp_checksum(
         tcp_packet.len()
     };
 
-    for k in (0..tcp_packet_iter_len).step_by(2) {
+    for _ in (0..tcp_packet_iter_len).step_by(2) {
         let current_bytes: [u8; 2] = [
             *(tcp_packet_iter.next().unwrap()),
             *(tcp_packet_iter.next().unwrap()),
@@ -220,11 +224,34 @@ pub fn calculate_tcp_checksum_from_ip_datagram(
 mod ipv4_tests {
     use crate::{
         ip_parse::parse_ip_utilities::create_ip_datagrams,
-        tcp_parse::parse_tcp_utilities::calculate_tcp_checksum_from_ip_datagram,
+        tcp_parse::{
+            parse_tcp_raw::*, parse_tcp_utilities::calculate_tcp_checksum_from_ip_datagram,
+        },
     };
 
     #[test]
     fn test_valid_string_to_ipv4_addr() {
+        let tcp_packet = create_raw_tcp_packet(
+            1234,
+            2345,
+            100,
+            200,
+            5,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            8000,
+            0,
+            0,
+            "".as_bytes(),
+            "Hello world!".as_bytes(),
+        );
         let mut identifier = 10;
         let mut ip_datagrams = match create_ip_datagrams(
             0b00000000,
@@ -234,7 +261,7 @@ mod ipv4_tests {
             &[192, 168, 0, 2],
             &[192, 168, 0, 3],
             &Vec::new(), // Add after support for options exists
-            &"Hello world!".as_bytes().to_vec(),
+            &tcp_packet,
             5000,
             &mut identifier,
         ) {
@@ -248,7 +275,7 @@ mod ipv4_tests {
         assert!(ip_datagrams.len() == 1);
         let datagram = ip_datagrams.remove(0);
         match calculate_tcp_checksum_from_ip_datagram(&datagram) {
-            Ok(cs) => println!("Found checksum: {}", u16::from_be_bytes(cs)),
+            Ok(cs) => println!("Found checksum: {:x?}", u16::from_be_bytes(cs)),
             Err(err) => {
                 err.0.iter().for_each(|e| println!("{}", e));
                 panic!("Calculating checksum for good datagram should not throw error")
