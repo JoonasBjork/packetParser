@@ -18,6 +18,10 @@ impl TCPError {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    pub fn print_all_errors(&self) -> () {
+        self.0.iter().for_each(|e| println!("{}\n", e))
+    }
 }
 
 /// Validates that the TCP packet has correct structure
@@ -26,9 +30,9 @@ pub fn validate_tcp_packet(tcp_packet: &[u8]) -> Result<(), TCPError> {
     if tcp_packet.len() < 20 {
         tcp_error.push("TCP packet is too short (<20 bytes)")
     }
-    if check_tcp_checksum(tcp_packet) {
-        tcp_error.push("TCP packet checksum doesn't match")
-    }
+    // if !check_tcp_checksum(tcp_packet) {
+    //     tcp_error.push("TCP packet checksum doesn't match")
+    // }
 
     if tcp_error.is_empty() {
         return Ok(());
@@ -102,22 +106,60 @@ pub fn print_tcp_data(buf: &[u8]) -> () {
 /// Returns the value that the checksum field should be set to with the current header
 
 /// Returns true if the checksum field matches the header's checksum. Otherwise returns false.
-pub fn check_tcp_checksum(buf: &[u8]) -> bool {
-    // let mut sum: u16 = 0;
-    // let mut current_field = [0; 2];
-    // for k in (0..20).step_by(2) {
-    //     current_field.copy_from_slice(&buf[k..k + 2]);
+pub fn check_tcp_checksum(
+    src_ip_addr: &[u8; 4],
+    dst_ip_addr: &[u8; 4],
+    reserved: &[u8; 1],
+    protocol: &[u8; 1],
+    tcp_packet: &[u8],
+) -> bool {
+    let pseudo_ip_header: Vec<u8> = [
+        src_ip_addr.as_slice(),
+        dst_ip_addr.as_slice(),
+        reserved.as_slice(),
+        protocol.as_slice(),
+        tcp_packet.len().to_be_bytes().as_slice(),
+    ]
+    .concat()
+    .into_iter()
+    .collect();
 
-    //     let next_field_value = u16::from_be_bytes(current_field);
-    //     sum = match sum.checked_add(next_field_value) {
-    //         Some(s) => s,
-    //         None => sum.wrapping_add(next_field_value.wrapping_add(1)),
-    //     }
-    // }
+    let mut sum: u16 = 0;
 
-    // let checksum = !sum;
-    // checksum == 0
-    false
+    let mut current_field = [0; 2];
+    for k in (0..12).step_by(2) {
+        current_field.copy_from_slice(&pseudo_ip_header[k..k + 2]);
+
+        let next_field_value = u16::from_be_bytes(current_field);
+        sum = match sum.checked_add(next_field_value) {
+            Some(s) => s,
+            None => sum.wrapping_add(next_field_value.wrapping_add(1)),
+        }
+    }
+
+    // (tcp_packet.len() - 1) includes the last two bits if tcp_packet.len() is even and excludes it if the last two bits are odd
+    for k in (0..tcp_packet.len() - 1).step_by(2) {
+        current_field.copy_from_slice(&tcp_packet[k..k + 2]);
+
+        let next_field_value = u16::from_be_bytes(current_field);
+        sum = match sum.checked_add(next_field_value) {
+            Some(s) => s,
+            None => sum.wrapping_add(next_field_value.wrapping_add(1)),
+        }
+    }
+
+    // If the tcp_packet.len() is odd, the last bit was excluded. Add it here to sum by padding.
+    if tcp_packet.len() % 2 == 1 {
+        current_field = [*tcp_packet.last().unwrap(), 0];
+
+        let next_field_value = u16::from_be_bytes(current_field);
+        sum = match sum.checked_add(next_field_value) {
+            Some(s) => s,
+            None => sum.wrapping_add(next_field_value.wrapping_add(1)),
+        }
+    }
+
+    !sum == 0
 }
 
 /// Calculates and returns the checksum field of the tcp header.
@@ -167,21 +209,24 @@ pub fn calculate_tcp_checksum(
         }
     }
 
-    // Pad the tcp_packet if needed
-    let mut tcp_packet_iter = tcp_packet.iter().chain(std::iter::once(&0));
-    // Set the iterator lengths based on if the length of data is even.
-    let tcp_packet_iter_len = if tcp_packet.len() % 2 == 1 {
-        tcp_packet.len() + 1
-    } else {
-        tcp_packet.len()
-    };
+    // (tcp_packet.len() - 1) includes the last two bits if tcp_packet.len() is even and excludes it if the last two bits are odd
+    // Skip over the checksum field
+    for k in (0..tcp_packet.len() - 1).step_by(2) {
+        if k == 16 {
+            continue;
+        }
+        current_field.copy_from_slice(&tcp_packet[k..k + 2]);
 
-    for _ in (0..tcp_packet_iter_len).step_by(2) {
-        let current_bytes: [u8; 2] = [
-            *(tcp_packet_iter.next().unwrap()),
-            *(tcp_packet_iter.next().unwrap()),
-        ];
-        current_field.copy_from_slice(&current_bytes);
+        let next_field_value = u16::from_be_bytes(current_field);
+        sum = match sum.checked_add(next_field_value) {
+            Some(s) => s,
+            None => sum.wrapping_add(next_field_value.wrapping_add(1)),
+        }
+    }
+
+    // If the tcp_packet.len() is odd, the last bit was excluded. Add it here to sum by padding.
+    if tcp_packet.len() % 2 == 1 {
+        current_field = [*tcp_packet.last().unwrap(), 0];
 
         let next_field_value = u16::from_be_bytes(current_field);
         sum = match sum.checked_add(next_field_value) {
@@ -201,6 +246,7 @@ pub fn calculate_tcp_checksum_from_ip_datagram(
     if let Err(validation) = validate_full_ip_datagram(ip_datagram) {
         return Err(validation);
     }
+
     let checksum = calculate_tcp_checksum(
         &get_ip_src_addr(ip_datagram),
         &get_ip_dst_addr(ip_datagram),
@@ -208,16 +254,18 @@ pub fn calculate_tcp_checksum_from_ip_datagram(
         &get_ip_protocol(ip_datagram),
         &get_ip_data(ip_datagram),
     );
-    match checksum {
-        Ok(cs) => return Ok(cs),
+
+    return match checksum {
+        Ok(cs) => Ok(cs),
         Err(err) => {
             let mut dge = DatagramError::new();
             dge.push("Found errors in TCP packet");
             // Add all found TCP errors to the returned DatagramError
             err.0.iter().for_each(|e| dge.push(e));
-            return Err(dge);
+
+            Err(dge)
         }
-    }
+    };
 }
 
 #[cfg(test)]
@@ -225,9 +273,12 @@ mod ipv4_tests {
     use crate::{
         ip_parse::parse_ip_utilities::create_ip_datagrams,
         tcp_parse::{
-            parse_tcp_raw::*, parse_tcp_utilities::calculate_tcp_checksum_from_ip_datagram,
+            parse_tcp_raw::*,
+            parse_tcp_utilities::{calculate_tcp_checksum_from_ip_datagram, validate_tcp_packet},
         },
     };
+
+    use super::{calculate_tcp_checksum, check_tcp_checksum};
 
     #[test]
     fn test_valid_string_to_ipv4_addr() {
@@ -252,6 +303,11 @@ mod ipv4_tests {
             "".as_bytes(),
             "Hello world!".as_bytes(),
         );
+        if let Err(err) = validate_tcp_packet(&tcp_packet) {
+            err.print_all_errors();
+            panic!("Found errors in validating correct TCP packet");
+        }
+
         let mut identifier = 10;
         let mut ip_datagrams = match create_ip_datagrams(
             0b00000000,
@@ -267,8 +323,8 @@ mod ipv4_tests {
         ) {
             Ok(datagrams) => datagrams,
             Err(e) => {
-                let errors = e.0.join("\n");
-                panic!("Faced errors in datagram creation: \n{}", errors)
+                e.print_all_errors();
+                panic!("Faced errors in datagram creation")
             }
         };
 
@@ -277,9 +333,55 @@ mod ipv4_tests {
         match calculate_tcp_checksum_from_ip_datagram(&datagram) {
             Ok(cs) => println!("Found checksum: {:x?}", u16::from_be_bytes(cs)),
             Err(err) => {
-                err.0.iter().for_each(|e| println!("{}", e));
+                err.print_all_errors();
                 panic!("Calculating checksum for good datagram should not throw error")
             }
         }
+    }
+
+    #[test]
+    fn test_tcp_checksum() {
+        let mut tcp_packet = create_raw_tcp_packet(
+            1234,
+            2345,
+            100,
+            200,
+            5,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            8000,
+            0,
+            0,
+            "".as_bytes(),
+            "Hello world!".as_bytes(),
+        );
+        if let Err(err) = validate_tcp_packet(&tcp_packet) {
+            err.print_all_errors();
+            panic!("Found errors in validating correct TCP packet");
+        }
+
+        let src_addr: [u8; 4] = [192, 168, 0, 3];
+        let dst_addr: [u8; 4] = [192, 168, 0, 3];
+        let reserved: [u8; 1] = [0];
+        let protocol: [u8; 1] = [6];
+
+        let new_checksum =
+            calculate_tcp_checksum(&src_addr, &dst_addr, &reserved, &protocol, &tcp_packet)
+                .unwrap_or_else(|err| {
+                    err.print_all_errors();
+                    panic!("Faced errors in calculating TCP checksum");
+                });
+
+        set_tcp_checksum(&mut tcp_packet, &new_checksum);
+        let checksum_matches =
+            check_tcp_checksum(&src_addr, &dst_addr, &reserved, &protocol, &tcp_packet);
+        assert!(checksum_matches == true);
     }
 }

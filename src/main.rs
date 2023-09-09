@@ -44,7 +44,7 @@ fn main() -> io::Result<()> {
 
         print_tcp_data(&tcp_packet);
 
-        println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
+        // println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
     }
     /* Ok(()) */
 }

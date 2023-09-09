@@ -19,6 +19,10 @@ impl DatagramError {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    pub fn print_all_errors(&self) -> () {
+        self.0.iter().for_each(|e| println!("{}\n", e))
+    }
 }
 
 /// Returns a vector of ip datagrams. The ip datagrams are arrays of bytes. Automatically fragments the packets if allowed by the DF flag,
@@ -364,8 +368,8 @@ mod ipv4_tests {
         ) {
             Ok(datagrams) => datagrams,
             Err(e) => {
-                let errors = e.0.join("\n");
-                panic!("Faced errors in datagram creation: \n{}", errors)
+                e.print_all_errors();
+                panic!("Faced errors in datagram creation")
             }
         };
 
@@ -434,8 +438,8 @@ mod ipv4_tests {
         ) {
             Ok(datagrams) => datagrams,
             Err(e) => {
-                let errors = e.0.join("\n");
-                panic!("Faced errors in datagram creation: \n{}", errors)
+                e.print_all_errors();
+                panic!("Faced errors in datagram creation")
             }
         };
 

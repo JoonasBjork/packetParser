@@ -230,6 +230,11 @@ pub fn get_tcp_data(buf: &[u8]) -> Vec<u8> {
     result
 }
 
+/// Sets the value of the checksum field in the provided tcp packet to `new_checksum`
+pub fn set_tcp_checksum(buf: &mut [u8], new_checksum: &[u8; 2]) -> () {
+    buf[16..18].copy_from_slice(new_checksum)
+}
+
 #[cfg(test)]
 mod ipv4_tests {
     use crate::tcp_parse::parse_tcp_raw::*;
