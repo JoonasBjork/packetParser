@@ -46,3 +46,4 @@ After creating the interface, the program can be run with the run.sh script. Pac
 - [ ] Possibilities to run the program in a Docker container
 - [ ] Possibilities to run the Dockerized program within a container orchestration platform such as Kubernetes
   - [ ] Automate testing in Kubernetes
+- [ ] DNS resolution

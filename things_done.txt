@@ -1,2 +1,15 @@
 Create a virtual network device "tun0"
 - sudo ip tuntap add tun0 mode tun
+
+Set up environment for X11
+- export DISPLAY=<windows_ip>:0.0
+- export LIBGL_ALWAYS_INDIRECT=1        // By default the application tries to perform direct rendering on the remote server's GPU, 
+                                        // LIBGL_ALWAYS_INDIRECT=1 - OpenGL commands are sent to X server that forwards them to the client, where rendering happens
+- xcalc   // Test the xserver
+
+Running wireshark in the background
+- wireshark &                   // Doesn't work with sudo. 
+- nohup wireshark &             // optional: nohup prevents the program from closing even if the terminal closes
+  - disown                      // Used in conjuction with background processes to remove bg processes from the shell's job table. 
+    - disown %1                 // Disown the job with id 1
+  - jobs                        // List current shell's jobs

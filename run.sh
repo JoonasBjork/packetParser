@@ -7,7 +7,7 @@ if [[ $ext -ne 0 ]]; then
 	exit $ext # If build fails, exit 
 fi
 sudo setcap cap_net_admin=eip target/release/packet_parser # Set the program's capability (so that the program doesn't need to be run as sudo)
-target/release/packet_parser & # Start the program as a bg process
+target/release/packet_parser &  # Start the program as a bg process 	// For running with tcpdump && (sudo tcpdump &) // tcpdump should be killed separately
 pid=$! # Get the bg program's pid
 sudo ip addr add 192.168.0.1/24 dev tun0 # Add the ip address to the tun0 network interface
 sudo ip link set up dev tun0 # Activate (bring UP) the tun0
