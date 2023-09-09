@@ -104,7 +104,7 @@ pub fn get_tcp_dst_port(buf: &[u8]) -> [u8; 2] {
 
 /// Returns an array with the sequence number of the first byte in this segment
 /// If SYN bit is present, the sequence number is the initial sequence number (ISN)
-pub fn get_tcp_seqn(buf: &[u8]) -> [u8; 4] {
+pub fn get_tcp_seqnum(buf: &[u8]) -> [u8; 4] {
     let mut result = [0; 4];
     result.copy_from_slice(&buf[4..8]);
     result
@@ -127,6 +127,18 @@ pub fn get_tcp_data_offset(buf: &[u8]) -> [u8; 1] {
 /// Returns an array with the reserved field. Must be set to zeros.
 pub fn get_tcp_reserved(buf: &[u8]) -> [u8; 1] {
     let result = [((buf[12] & 0b00001111) << 2) + ((buf[13] & 0b11000000) >> 6)];
+    result
+}
+
+/// Returns an array with the URG flag
+pub fn get_tcp_cwr_flag(buf: &[u8]) -> [u8; 1] {
+    let result = [(buf[13] & 0b10000000) >> 5];
+    result
+}
+
+/// Returns an array with the URG flag
+pub fn get_tcp_ece_flag(buf: &[u8]) -> [u8; 1] {
+    let result = [(buf[13] & 0b01000000) >> 5];
     result
 }
 
@@ -211,4 +223,77 @@ pub fn get_tcp_data(buf: &[u8]) -> Vec<u8> {
     let mut result = Vec::with_capacity(packet_len_in_bytes - header_len_in_bytes);
     result.extend(&buf[header_len_in_bytes..packet_len_in_bytes]);
     result
+}
+
+#[cfg(test)]
+mod ipv4_tests {
+    use crate::tcp_parse::parse_tcp_raw::*;
+
+    #[test]
+    fn test_tcp_getters() {
+        let tcp_packet = create_raw_tcp_packet(
+            1234,
+            2345,
+            100,
+            200,
+            5,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            8000,
+            0,
+            0,
+            "".as_bytes(),
+            "Hello world!".as_bytes(),
+        );
+        let src_port = u16::from_be_bytes(get_tcp_src_port(&tcp_packet));
+        assert!(src_port == 1234);
+        let dst_port = u16::from_be_bytes(get_tcp_dst_port(&tcp_packet));
+        assert!(dst_port == 2345);
+
+        let seq_no = u32::from_be_bytes(get_tcp_seqnum(&tcp_packet));
+        assert!(seq_no == 100);
+        let ack_no = u32::from_be_bytes(get_tcp_acknum(&tcp_packet));
+        assert!(ack_no == 200);
+
+        let data_offset = u8::from_be_bytes(get_tcp_data_offset(&tcp_packet));
+        assert!(data_offset == 5);
+        let reserved = u8::from_be_bytes(get_tcp_reserved(&tcp_packet));
+        assert!(reserved == 0);
+
+        let cwr_flag = u8::from_be_bytes(get_tcp_cwr_flag(&tcp_packet));
+        assert!(cwr_flag == 0);
+        let ece_flag = u8::from_be_bytes(get_tcp_ece_flag(&tcp_packet));
+        assert!(ece_flag == 0);
+        let urg_flag = u8::from_be_bytes(get_tcp_urg_flag(&tcp_packet));
+        assert!(urg_flag == 0);
+        let ack_flag = u8::from_be_bytes(get_tcp_ack_flag(&tcp_packet));
+        assert!(ack_flag == 0);
+        let psh_flag = u8::from_be_bytes(get_tcp_psh_flag(&tcp_packet));
+        assert!(psh_flag == 0);
+        let rst_flag = u8::from_be_bytes(get_tcp_rst_flag(&tcp_packet));
+        assert!(rst_flag == 0);
+        let syn_flag = u8::from_be_bytes(get_tcp_syn_flag(&tcp_packet));
+        assert!(syn_flag == 0);
+        let fin_flag = u8::from_be_bytes(get_tcp_fin_flag(&tcp_packet));
+        assert!(fin_flag == 0);
+
+        let window_size = u16::from_be_bytes(get_tcp_window(&tcp_packet));
+        assert!(window_size == 8000);
+        let checksum = u16::from_be_bytes(get_tcp_checksum(&tcp_packet));
+        assert!(checksum == 0);
+        let urg_ptr = u16::from_be_bytes(get_tcp_urg_ptr(&tcp_packet));
+        assert!(urg_ptr == 0);
+
+        let options = get_tcp_options(&tcp_packet);
+        assert!(options.len() == 0);
+        let data = get_tcp_data(&tcp_packet);
+        assert!(data == "Hello world!".as_bytes());
+    }
 }
