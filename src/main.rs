@@ -8,6 +8,8 @@ use ether_parse::parse_ether::*;
 use ip_parse::{parse_ip_utilities::*, parse_ipv4_raw::*};
 use tcp_parse::parse_tcp_utilities::*;
 
+use crate::tcp_parse::parse_tcp_raw::get_tcp_checksum;
+
 fn main() -> io::Result<()> {
     println!("Hello, world!");
     let nic = tun_tap::Iface::new("tun0", tun_tap::Mode::Tun).expect("Failed to create TUN");
@@ -44,7 +46,11 @@ fn main() -> io::Result<()> {
 
         print_tcp_data(&tcp_packet);
 
-        // println!("tcp_checksum matches: {}", check_tcp_checksum(&tcp_packet));
+        println!(
+            "calculate_tcp_checksum_from_ip_datagram: {:x?}",
+            calculate_tcp_checksum_from_ip_datagram(&ip_buf)
+        );
+        println!("get_tcp_checksum: {:x?}", get_tcp_checksum(&tcp_packet));
     }
     /* Ok(()) */
 }

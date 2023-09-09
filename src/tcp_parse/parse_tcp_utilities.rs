@@ -4,6 +4,7 @@ use crate::ip_parse::parse_ipv4_raw::{
 };
 use crate::tcp_parse::parse_tcp_raw::*;
 
+#[derive(Debug)]
 pub struct TCPError(pub Vec<String>);
 
 impl TCPError {
@@ -113,16 +114,14 @@ pub fn check_tcp_checksum(
     protocol: &[u8; 1],
     tcp_packet: &[u8],
 ) -> bool {
-    let pseudo_ip_header: Vec<u8> = [
-        src_ip_addr.as_slice(),
-        dst_ip_addr.as_slice(),
-        reserved.as_slice(),
-        protocol.as_slice(),
-        tcp_packet.len().to_be_bytes().as_slice(),
-    ]
-    .concat()
-    .into_iter()
-    .collect();
+    let pseudo_ip_header: Vec<u8> = src_ip_addr
+        .iter()
+        .chain(dst_ip_addr.iter())
+        .chain(reserved.iter())
+        .chain(protocol.iter())
+        .chain((tcp_packet.len() as u16).to_be_bytes().iter())
+        .cloned()
+        .collect::<Vec<u8>>();
 
     let mut sum: u16 = 0;
 
@@ -158,12 +157,14 @@ pub fn check_tcp_checksum(
             None => sum.wrapping_add(next_field_value.wrapping_add(1)),
         }
     }
+    sum = !sum;
 
-    !sum == 0
+    sum == 0
 }
 
 /// Calculates and returns the checksum field of the tcp header.
 /// * NOTE: Skips over the checksum field of the `tcp_packet` parameter
+/// * NOTE: The TCP Length field in the pseudo IP header comes from tcp_packet.len()
 pub fn calculate_tcp_checksum(
     src_ip_addr: &[u8; 4],
     dst_ip_addr: &[u8; 4],
@@ -182,20 +183,22 @@ pub fn calculate_tcp_checksum(
         tcp_error.push("TCP packet is less that 20 bytes")
     }
 
+    let pseudo_ip_header: Vec<u8> = src_ip_addr
+        .iter()
+        .chain(dst_ip_addr.iter())
+        .chain(reserved.iter())
+        .chain(protocol.iter())
+        .chain((tcp_packet.len() as u16).to_be_bytes().iter())
+        .cloned()
+        .collect::<Vec<u8>>();
+
+    if pseudo_ip_header.len() != 12 {
+        tcp_error.push("Internal pseudo IP header size is incorrect")
+    }
+
     if !tcp_error.is_empty() {
         return Err(tcp_error);
     }
-
-    let pseudo_ip_header: Vec<u8> = [
-        src_ip_addr.as_slice(),
-        dst_ip_addr.as_slice(),
-        reserved.as_slice(),
-        protocol.as_slice(),
-        tcp_packet.len().to_be_bytes().as_slice(),
-    ]
-    .concat()
-    .into_iter()
-    .collect();
 
     let mut sum: u16 = 0;
     let mut current_field = [0; 2];
@@ -206,7 +209,7 @@ pub fn calculate_tcp_checksum(
         sum = match sum.checked_add(next_field_value) {
             Some(s) => s,
             None => sum.wrapping_add(next_field_value.wrapping_add(1)),
-        }
+        };
     }
 
     // (tcp_packet.len() - 1) includes the last two bits if tcp_packet.len() is even and excludes it if the last two bits are odd
@@ -221,7 +224,7 @@ pub fn calculate_tcp_checksum(
         sum = match sum.checked_add(next_field_value) {
             Some(s) => s,
             None => sum.wrapping_add(next_field_value.wrapping_add(1)),
-        }
+        };
     }
 
     // If the tcp_packet.len() is odd, the last bit was excluded. Add it here to sum by padding.
@@ -232,8 +235,10 @@ pub fn calculate_tcp_checksum(
         sum = match sum.checked_add(next_field_value) {
             Some(s) => s,
             None => sum.wrapping_add(next_field_value.wrapping_add(1)),
-        }
+        };
     }
+
+    sum = !sum;
 
     Ok(sum.to_be_bytes())
 }

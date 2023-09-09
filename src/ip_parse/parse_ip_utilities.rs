@@ -5,6 +5,7 @@
 use crate::ip_parse::parse_ipv4_raw::*;
 use crate::ip_parse::parse_tables;
 
+#[derive(Debug)]
 pub struct DatagramError(pub Vec<String>);
 
 impl DatagramError {
@@ -222,7 +223,7 @@ pub fn validate_full_ip_datagram(buf: &[u8]) -> Result<(), DatagramError> {
     }
 
     if u8::from_be_bytes(get_ip_df_flag(&buf)) == 1 as u8
-        && u16::from_be_bytes(get_ip_fragment_offset(&buf)) == 0
+        && u16::from_be_bytes(get_ip_fragment_offset(&buf)) != 0
     {
         datagram_errors
             .push("Datagram Don't fragment flag is set to 1 but fragment offset is not zero")
