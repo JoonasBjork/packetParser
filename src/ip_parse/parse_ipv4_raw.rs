@@ -11,7 +11,7 @@ pub fn create_raw_ip_datagram(
     version: u8,
     ihl: u8,
     dscp_ecn: u8,
-    total_length: u8,
+    total_length: u16,
     identification: u16,
     reserved_flag: bool,
     df_flag: bool,
@@ -25,29 +25,26 @@ pub fn create_raw_ip_datagram(
     options: &[u8],
     data: &[u8],
 ) -> Vec<u8> {
-    let mut header: [u8; 20] = [0; 20];
-    header[0] = (version << 4) | (ihl & 0b00001111); // Ip version and ihl
-    header[1] = dscp_ecn;
-    header[2..4].copy_from_slice(&total_length.to_be_bytes());
-    header[4..6].copy_from_slice(&identification.to_be_bytes());
-    header[6..8].copy_from_slice(
-        &(fragment_offset
-            | ((reserved_flag as u16) << 15)
-            | ((df_flag as u16) << 14)
-            | ((mf_flag as u16) << 13))
-            .to_be_bytes(),
+    let mut header = create_raw_ip_header(
+        version,
+        ihl,
+        dscp_ecn,
+        total_length,
+        identification,
+        reserved_flag,
+        df_flag,
+        mf_flag,
+        fragment_offset,
+        time_to_live,
+        protocol,
+        header_checksum,
+        src_addr,
+        dst_addr,
+        options,
     );
-    header[8] = time_to_live;
-    header[9] = protocol;
-    header[10..12].copy_from_slice(&header_checksum.to_be_bytes());
-    header[12..16].copy_from_slice(src_addr);
-    header[16..20].copy_from_slice(dst_addr);
 
-    let mut result: Vec<u8> = Vec::with_capacity(20 + options.len() + data.len());
-    result.extend(&header);
-    result.extend(options);
-    result.extend(data);
-    result
+    header.extend(data);
+    header
 }
 
 /// Returns an array of bytes with the created ip datagram.
@@ -82,29 +79,31 @@ pub fn create_raw_ip_header(
     header_checksum: u16,
     src_addr: &[u8; 4],
     dst_addr: &[u8; 4],
-) -> [u8; 20] {
-    let mut header: [u8; 20] = [0; 20];
-    header[0] = (version << 4) | (ihl & 0b00001111); // Ip version and ihl
-    header[1] = dscp_ecn;
-    header[2..4].copy_from_slice(&total_length.to_be_bytes());
-    header[4..6].copy_from_slice(&identification.to_be_bytes());
-    header[6..8].copy_from_slice(
+    options: &[u8],
+) -> Vec<u8> {
+    let mut header: Vec<u8> = Vec::with_capacity(20 + options.len());
+    header.push((version << 4) | (ihl & 0b00001111)); // Ip version and ihl, idx 0
+    header.push(dscp_ecn); // idx 1
+    header.extend(&total_length.to_be_bytes());
+    header.extend(&identification.to_be_bytes());
+    header.extend(
         &(fragment_offset
             | ((reserved_flag as u16) << 15)
             | ((df_flag as u16) << 14)
             | ((mf_flag as u16) << 13))
             .to_be_bytes(),
     );
-    header[8] = time_to_live;
-    header[9] = protocol;
-    header[10..12].copy_from_slice(&header_checksum.to_be_bytes());
-    header[12..16].copy_from_slice(src_addr);
-    header[16..20].copy_from_slice(dst_addr);
+    header.push(time_to_live); // idx 8
+    header.push(protocol); // idx 9
+    header.extend(&header_checksum.to_be_bytes());
+    header.extend(src_addr);
+    header.extend(dst_addr);
+    header.extend(options);
 
     header
 }
 
-/// Returns a full IPv4 datagram as an array of bytes.
+/* /// Returns a full IPv4 datagram as an array of bytes.
 /// * `header` - The datagram's header as an array of bytes. Can be created with `create_raw_ip_header`.
 /// * `options` - The datagram's options field as an array of bytes.
 /// * `data` - The datagram's data field as an array of bytes.
@@ -120,7 +119,7 @@ pub fn create_raw_ip_datagram_from_header(
     result.extend(options);
     result.extend(data);
     result
-}
+} */
 
 /// Returns an array with ip version in the datagram
 pub fn get_ip_version(buf: &[u8]) -> [u8; 1] {
@@ -375,6 +374,7 @@ mod ipv4_raw_tests {
             123,
             &[192, 168, 0, 2],
             &[192, 168, 0, 3],
+            &Vec::new(),
         );
         let mut version = u8::from_be_bytes(get_ip_version(&header));
         assert!(version == 4);

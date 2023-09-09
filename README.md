@@ -24,7 +24,7 @@ After creating the interface, the program can be run with the run.sh script. Pac
   - [ ] Parsing
     - [ ] Support for combining fragments into single datagrams
     - [ ] support for options
-    - [ ] Unit tests
+    - [x] Unit tests
   - [ ] Support for creating IP datagrams
     - [ ] Support for creating fragmented datagrams
     - [ ] Unit tests
@@ -40,9 +40,9 @@ After creating the interface, the program can be run with the run.sh script. Pac
 
 
 ### Maybe in the future
-- [ ] Move the IP, TCP, Ethernet parsing into their own libraries
 - [ ] Full implementation of Ethernet parsing
   - Requires changing from TUN interface to TAP interface
+- [ ] Move the IP, TCP, Ethernet parsing into their own libraries
 - [ ] Possibilities to run the program in a Docker container
 - [ ] Possibilities to run the Dockerized program within a container orchestration platform such as Kubernetes
   - [ ] Automate testing in Kubernetes

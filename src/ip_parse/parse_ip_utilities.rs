@@ -88,7 +88,7 @@ pub fn create_ip_datagrams(
     let number_of_datagrams = (single_datagram_len / max_data_field_size) + 1;
 
     if (number_of_datagrams == 1) {
-        let mut header = create_raw_ip_header(
+        let mut datagram = create_raw_ip_datagram(
             4,
             ihl,
             dscp_ecn,
@@ -103,10 +103,11 @@ pub fn create_ip_datagrams(
             0,
             src_addr,
             dst_addr,
+            &options,
+            &data,
         );
-        let checksum = calculate_checksum(&header);
-        set_header_checksum(&mut header, &checksum);
-        let datagram = create_raw_ip_datagram_from_header(&header, options, data);
+        let checksum = calculate_checksum(&datagram);
+        set_header_checksum(&mut datagram, &checksum);
         created_datagrams.push(datagram);
         *first_ip_identification += 1;
     } else {
@@ -120,7 +121,7 @@ pub fn create_ip_datagrams(
             };
             let current_datagram_len = data_end - data_start + 20 + options.len();
             let current_datagram_data = &data[data_start..data_end].to_vec(); // figure out something to remove this cloning
-            let mut header = create_raw_ip_header(
+            let mut datagram = create_raw_ip_datagram(
                 4,
                 ihl,
                 dscp_ecn,
@@ -135,11 +136,11 @@ pub fn create_ip_datagrams(
                 0,
                 src_addr,
                 dst_addr,
+                options,
+                current_datagram_data,
             );
-            let checksum = calculate_checksum(&header);
-            set_header_checksum(&mut header, &checksum);
-            let datagram =
-                create_raw_ip_datagram_from_header(&header, options, current_datagram_data);
+            let checksum = calculate_checksum(&datagram);
+            set_header_checksum(&mut datagram, &checksum);
             created_datagrams.push(datagram);
             *first_ip_identification += 1;
         }
@@ -153,7 +154,7 @@ pub fn create_ip_datagrams(
 /// * The `header` parameter is the ip datagram header excluding the options field.
 /// Helper function for creating an ip datagram. Skips over the checksum bytes in the header.
 #[allow(unused)]
-pub fn calculate_checksum(header: &[u8; 20]) -> [u8; 2] {
+pub fn calculate_checksum(header: &[u8]) -> [u8; 2] {
     let mut sum: u16 = 0;
     let mut current_field = [0; 2];
     for k in (0..20).step_by(2) {
