@@ -1,3 +1,5 @@
+use crate::tcp_parse::parse_tcp_raw::*;
+
 enum State {
     LISTEN,
     SYNSENT,
@@ -55,4 +57,17 @@ struct TCB {
     seg_up: u32,
     /// segment precedence value
     seg_prc: u32,
+}
+
+struct TCPContext {
+    active_connections: Vec<TCB>,
+}
+
+impl TCPContext {
+    /// Start of the logic flow when receiving a TCP packet. If the program should respond something to the incoming TCP packet, it is returned.
+    /// If there is no response, the function returns None.
+    pub fn handle_tcp_packet(tcp_packet: Vec<u8>) -> Option<Vec<u8>> {
+        
+        None
+    }
 }

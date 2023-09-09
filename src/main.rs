@@ -34,6 +34,7 @@ fn main() -> io::Result<()> {
             Ok(_) => (),
             Err(de) => {
                 eprintln!("Found errors in datagram\n{:?}", de.0);
+                continue;
             }
         }
         print_ip_data(&ip_buf);
