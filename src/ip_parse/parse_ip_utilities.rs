@@ -203,7 +203,7 @@ pub fn parse_ip_string_to_bytes(ip: &str) -> Result<[u8; 4], ()> {
 }
 
 /// Validates the entire datagram. Returns an empty Ok if the datagram is valid and Err with a DatagramError if it isn't valid.
-pub fn validate_full_ip_datagram(buf: &[u8]) -> Result<(), DatagramError> {
+pub fn validate_ip_datagram(buf: &[u8]) -> Result<(), DatagramError> {
     let mut datagram_errors = DatagramError::new();
     if !check_ip_checksum(buf) {
         datagram_errors.push("Datagram header checksum doesn't match");

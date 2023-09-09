@@ -1,4 +1,4 @@
-use crate::ip_parse::parse_ip_utilities::{validate_full_ip_datagram, DatagramError};
+use crate::ip_parse::parse_ip_utilities::{validate_ip_datagram, DatagramError};
 use crate::ip_parse::parse_ipv4_raw::{
     get_ip_data, get_ip_dst_addr, get_ip_protocol, get_ip_src_addr,
 };
@@ -248,7 +248,7 @@ pub fn calculate_tcp_checksum(
 pub fn calculate_tcp_checksum_from_ip_datagram(
     ip_datagram: &[u8],
 ) -> Result<[u8; 2], DatagramError> {
-    if let Err(validation) = validate_full_ip_datagram(ip_datagram) {
+    if let Err(validation) = validate_ip_datagram(ip_datagram) {
         return Err(validation);
     }
 
