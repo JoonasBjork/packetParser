@@ -69,7 +69,13 @@ struct TCB {
 }
 
 impl TCB {
-    pub fn new(local_ip_addr: u32, remote_ip_addr: u32, local_port: u16, remote_port: u16) -> Self {
+    pub fn new(
+        state: State,
+        local_ip_addr: u32,
+        remote_ip_addr: u32,
+        local_port: u16,
+        remote_port: u16,
+    ) -> Self {
         TCB {
             state: State::LISTEN,
             local_ip_addr,
@@ -99,16 +105,32 @@ impl TCB {
 
 pub struct TCPContext {
     active_connections: Vec<TCB>,
+    /// Representation of an open port. Open ports can accept communication requests.
+    listening_ports: Vec<u16>,
 }
 
 impl TCPContext {
     pub fn new() -> Self {
         return TCPContext {
             active_connections: Vec::new(),
+            listening_ports: Vec::new(),
         };
     }
-    /// Start of the logic flow when receiving a TCP packet. If the program should respond something to the incoming TCP packet, it is returned.
-    /// If there is no response, the function returns None.
+
+    /// Sets `new_port_number` to listening. Returns empty error if the port number is already listening.  
+    pub fn set_port_to_listening(&mut self, new_port_number: u16) -> Result<(), ()> {
+        if self.listening_ports.contains(&new_port_number) {
+            return Err(());
+        }
+        self.listening_ports.push(new_port_number);
+        Ok(())
+    }
+
+    fn create_rst_datagram(ip_datagram: &[u8], tcp_packet: &[u8]) -> Vec<u8> {
+        unimplemented!()
+    }
+    /// Start of the logic flow when receiving a TCP packet. If the program should respond something to the incoming TCP packet, an IP datagram that contains the response is returned.
+    /// Otherwise None is returned.
     pub fn handle_tcp_packet(&self, ip_datagram: &[u8]) -> Option<Vec<u8>> {
         if let Err(e) = parse_ip_utilities::validate_ip_datagram(&ip_datagram) {
             e.print_all_errors();
@@ -141,9 +163,21 @@ impl TCPContext {
         parse_tcp_utilities::print_tcp_data(&tcp_packet);
         println!();
 
+        // Check if the port is listening. If not, return RST.
+        if !self
+            .listening_ports
+            .contains(&u16::from_be_bytes(parse_tcp_raw::get_tcp_dst_port(
+                &tcp_packet,
+            )))
+        {
+            println!("Port number is not open");
+            return Some(Self::create_rst_datagram(&ip_datagram, &tcp_packet));
+        }
+
         // Start TCP functionality
         if parse_tcp_raw::get_tcp_syn_flag(&tcp_packet)[0] == 1 {
             let tcb = TCB::new(
+                State::LISTEN,
                 u32::from_be_bytes(src_ip_addr),
                 u32::from_be_bytes(dst_ip_addr),
                 u16::from_be_bytes(parse_tcp_raw::get_tcp_dst_port(&tcp_packet)),
