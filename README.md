@@ -48,7 +48,5 @@ After creating the interface, the program can be run with the **run.sh script**.
 - [ ] Full implementation of Ethernet parsing
   - Requires changing from TUN interface to TAP interface
 - [ ] Move the IP, TCP, Ethernet parsing into their own libraries
-- [ ] Possibilities to run the program in a Docker container
-- [ ] Possibilities to run the Dockerized program within a container orchestration platform such as Kubernetes
-  - [ ] Automate testing in Kubernetes
+- [ ] Automate testing on GitHub
 - [ ] DNS resolution
